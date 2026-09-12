@@ -1,0 +1,681 @@
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { ChevronLeft, Move, Target } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
+import '../battle.css';
+import type { PetUnit, Skill, Phase, BattleLog, DamagePopup } from '../engine/battleEngine';
+import {
+  getTurnOrder, tickCooldowns,
+  getReachableCells, getTargetableCells,
+  calculateDamage, calculateHeal,
+  enemyDecide, checkBattleEnd, hexDistance,
+  getElementBonus, makeSkills,
+} from '../engine/battleEngine';
+import { processBattleResult } from '../engine/rewardSystem';
+import type { BattleReward } from '../engine/rewardSystem';
+
+const GRID_ROWS = 5;
+const GRID_COLS = 4;
+
+// Element color map
+const ELEMENT_COLORS: Record<string, string> = {
+  fire: '#ff6b6b', water: '#54a0ff', earth: '#c8a96e',
+  nature: '#1dd1a1', light: '#feca57', dark: '#a55eea',
+};
+
+// Hardcoded Prototype IDs
+const ENEMY_ID = '11111111-1111-1111-1111-111111111111';
+
+const SPECIES_EMOJI: Record<string, string> = {
+  Dragon: '🐉', Eagle: '🦅', Turtle: '🐢',
+  Snake: '🐍', Bat: '🦇', Wolf: '🐺'
+};
+const SPECIES_RANGED = ['Eagle', 'Bat'];
+
+interface BattleScreenProps {
+  playerId: string;
+  activePetIds: string[];
+  onBack: () => void;
+}
+
+export default function BattleScreen({ playerId, activePetIds, onBack }: BattleScreenProps) {
+  const [units, setUnits] = useState<PetUnit[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [turnOrderIds, setTurnOrderIds] = useState<string[]>([]);
+  const [currentTurnIdx, setCurrentTurnIdx] = useState(0);
+  const [phase, setPhase] = useState<Phase>('select_action');
+  const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
+  const [highlightedCells, setHighlightedCells] = useState<Set<string>>(new Set());
+  const [targetablePets, setTargetablePets] = useState<Set<string>>(new Set());
+  const [logs, setLogs] = useState<BattleLog[]>([]);
+  const [damagePopups, setDamagePopups] = useState<DamagePopup[]>([]);
+  const [timer, setTimer] = useState(20); // Increased from 15 to 20
+  const [turnNumber, setTurnNumber] = useState(1);
+  const logRef = useRef<HTMLDivElement>(null);
+
+  // --- Refs to fix stale closures in setTimeouts ---
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
+  const unitsRef = useRef(units);
+  unitsRef.current = units;
+  const hasSavedRef = useRef(false);
+
+  const [reward, setReward] = useState<BattleReward | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // --- Initialize & Fetch Data ---
+  useEffect(() => {
+    async function loadPets() {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('pets')
+        .select(`
+          id, owner_id, name, happiness, hunger, health, energy,
+          species_base_stats (
+            name, element, base_hp, base_atk, base_def, base_spd
+          )
+        `)
+        .in('owner_id', [playerId, ENEMY_ID]);
+
+      if (error) {
+        console.error('Error fetching pets:', error);
+        addLog('❌ Database Error: ' + error.message, 'info');
+        setIsLoading(false);
+        return;
+      }
+
+      if (data) {
+        let playerIndex = 0;
+        let enemyIndex = 0;
+
+        const filteredData = data.filter((pet: any) => 
+          pet.owner_id === ENEMY_ID || (pet.owner_id === playerId && activePetIds.includes(pet.id))
+        );
+
+        const fetchedUnits: PetUnit[] = filteredData.map((pet: any) => {
+          const s = pet.species_base_stats;
+          // Apply care stat multipliers
+          const eff_hunger = Math.max(50, pet.hunger) / 100;
+          const eff_happiness = Math.max(50, pet.happiness) / 100;
+          const eff_health = Math.max(50, pet.health) / 100;
+
+          const isPlayer = pet.owner_id === playerId;
+          
+          // Positioning: Player on left (col 0), Enemy on right (col 3)
+          let row = 0, col = 0;
+          if (isPlayer) {
+            col = 0;
+            // Center the party based on number of pets
+            if (activePetIds.length === 1) row = 2;
+            else if (activePetIds.length === 2) row = playerIndex === 0 ? 1 : 3;
+            else row = playerIndex + 1; // 1, 2, 3
+            
+            playerIndex++;
+          } else {
+            col = GRID_COLS - 1; // 3
+            row = enemyIndex + 1; // simple stack
+            enemyIndex++;
+          }
+
+          return {
+            id: pet.id,
+            name: pet.name,
+            emoji: SPECIES_EMOJI[s.name] || '❓',
+            element: s.element,
+            team: isPlayer ? 'player' : 'enemy',
+            maxHp: Math.round(s.base_hp * eff_hunger),
+            hp: Math.round(s.base_hp * eff_hunger),
+            atk: Math.round(s.base_atk * eff_happiness),
+            def: Math.round(s.base_def * eff_hunger),
+            spd: Math.round(s.base_spd * eff_health),
+            skills: makeSkills(s.element, SPECIES_RANGED.includes(s.name)),
+            cooldowns: {},
+            statusEffects: [],
+            row, col,
+            hasMoved: false,
+            hasActed: false,
+            isDead: false
+          };
+        });
+
+        setUnits(fetchedUnits);
+        
+        // Initialize turn order
+        const order = getTurnOrder(fetchedUnits).map(u => u.id);
+        setTurnOrderIds(order);
+        setCurrentTurnIdx(0);
+        
+        setLogs([{ message: '⚔️ Battle Start! Fetching stats from Supabase...', type: 'info', timestamp: Date.now() }]);
+      }
+      setIsLoading(false);
+    }
+    loadPets();
+  }, []);
+
+  // --- Current Active Unit ---
+  const activeUnitId = turnOrderIds[currentTurnIdx];
+  const activeUnit = units.find(u => u.id === activeUnitId);
+  const isPlayerTurn = activeUnit?.team === 'player';
+
+  // --- 15s Timer (Player turns only) ---
+  useEffect(() => {
+    if (!isPlayerTurn || phase === 'animating' || phase === 'victory' || phase === 'defeat') return;
+    if (timer <= 0) {
+      addLog(`⏰ ${activeUnit.name} หมดเวลา! Auto-attack!`, 'info');
+      handleAutoAttack();
+      return;
+    }
+    const interval = setInterval(() => setTimer(t => t - 1), 1000);
+    return () => clearInterval(interval);
+  }, [timer, isPlayerTurn, phase]);
+
+  // --- Centralized Win/Lose Check ---
+  useEffect(() => {
+    if (phase === 'victory' || phase === 'defeat') return;
+    if (units.length === 0) return; // Skip while loading
+    const endResult = checkBattleEnd(units);
+    
+    if (endResult && !hasSavedRef.current) {
+      hasSavedRef.current = true; // Prevent double saving
+      setPhase(endResult);
+      addLog(endResult === 'victory' ? '🏆 VICTORY! คุณชนะแล้ว!' : '💔 DEFEAT... คุณแพ้...', 'info');
+      
+      // Save results to Supabase
+      setIsSaving(true);
+      const playerUnits = units.filter(u => u.team === 'player');
+      processBattleResult(endResult, playerId, playerUnits).then(res => {
+        if (res) setReward(res);
+        setIsSaving(false);
+      });
+    }
+  }, [units, phase]);
+
+  // --- Enemy AI Turn ---
+  useEffect(() => {
+    if (phase === 'victory' || phase === 'defeat') return;
+    if (!activeUnit || activeUnit.isDead) {
+      advanceTurn();
+      return;
+    }
+    if (activeUnit.team === 'enemy' && phase !== 'animating') {
+      setPhase('enemy_turn');
+      const delay = setTimeout(() => executeEnemyTurn(), 800);
+      return () => clearTimeout(delay);
+    }
+  }, [currentTurnIdx, turnOrderIds, phase]);
+
+  // --- Auto-scroll log ---
+  useEffect(() => {
+    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+  }, [logs]);
+
+  // --- Cleanup old damage popups ---
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDamagePopups(prev => prev.filter(p => Date.now() - p.timestamp < 1200));
+    }, 200);
+    return () => clearInterval(interval);
+  }, []);
+
+  // --- Helper: Add Log ---
+  function addLog(message: string, type: BattleLog['type']) {
+    setLogs(prev => [...prev.slice(-20), { message, type, timestamp: Date.now() }]);
+  }
+
+  // --- Helper: Add Damage Popup ---
+  function addPopup(row: number, col: number, amount: number, type: DamagePopup['type']) {
+    setDamagePopups(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, row, col, amount, type, timestamp: Date.now() }]);
+  }
+
+  // --- Advance to Next Turn ---
+  function advanceTurn() {
+    // GUARD: Never advance if game is over (using Ref for latest state)
+    if (phaseRef.current === 'victory' || phaseRef.current === 'defeat') return;
+    if (checkBattleEnd(unitsRef.current)) return;
+
+    let nextIdx = currentTurnIdx + 1;
+
+    // If we've gone through all units, start a new round
+    if (nextIdx >= turnOrderIds.length) {
+      nextIdx = 0;
+      setTurnNumber(t => t + 1);
+
+      // Recalculate turn order with updated units and tick cooldowns
+      setUnits(prev => {
+        const updated = prev.map(u => u.isDead ? u : tickCooldowns(u));
+        const newOrder = getTurnOrder(updated).map(u => u.id);
+        setTurnOrderIds(newOrder);
+        return updated;
+      });
+    }
+
+    setCurrentTurnIdx(nextIdx);
+    setTimer(20); // Reset timer to 20
+    setSelectedSkill(null);
+    setHighlightedCells(new Set());
+    setTargetablePets(new Set());
+    setPhase('select_action');
+  }
+
+  // --- Handle Auto-Attack (Time ran out) ---
+  function handleAutoAttack() {
+    if (!activeUnit || phaseRef.current === 'victory' || phaseRef.current === 'defeat') return;
+    const enemies = unitsRef.current.filter(u => u.team !== activeUnit.team && !u.isDead);
+    if (enemies.length === 0) return;
+
+    // Find closest enemy
+    let closest = enemies[0];
+    let minDist = hexDistance(activeUnit.row, activeUnit.col, closest.row, closest.col);
+    for (const e of enemies) {
+      const d = hexDistance(activeUnit.row, activeUnit.col, e.row, e.col);
+      if (d < minDist) { closest = e; minDist = d; }
+    }
+
+    const basicSkill = activeUnit.skills[0];
+    if (minDist <= basicSkill.range) {
+      executeAttack(activeUnit, closest, basicSkill);
+    } else {
+      addLog(`${activeUnit.emoji} ${activeUnit.name} ไม่มีเป้าหมายในระยะ!`, 'info');
+    }
+    setTimeout(() => advanceTurn(), 600);
+  }
+
+  // --- Execute Attack ---
+  function executeAttack(attacker: PetUnit, mainTarget: PetUnit, skill: Skill) {
+    // Calculate targets first outside state updater
+    const targets = skill.aoe > 0
+      ? units.filter(u => u.team !== attacker.team && !u.isDead && hexDistance(mainTarget.row, mainTarget.col, u.row, u.col) <= skill.aoe)
+      : [mainTarget];
+
+    // Compute all changes before updating state (prevents React Strict Mode double-firing side effects)
+    let updatedUnits = [...units];
+    
+    targets.forEach(target => {
+      const result = calculateDamage(attacker, target, skill);
+      const elBonus = getElementBonus(attacker.element, target.element);
+      let logMsg = `${attacker.emoji} ${attacker.name} ใช้ ${skill.icon} ${skill.name} → ${target.emoji} ${target.name}: -${result.damage} HP`;
+      if (result.isCritical) logMsg += ' 💥 CRITICAL!';
+      if (elBonus > 1) logMsg += ' 🔺 ได้เปรียบธาตุ!';
+      if (elBonus < 1) logMsg += ' 🔻 เสียเปรียบธาตุ';
+
+      addLog(logMsg, result.isCritical ? 'critical' : 'damage');
+      addPopup(target.row, target.col, result.damage, 'damage');
+
+      updatedUnits = updatedUnits.map(u => {
+        if (u.id === target.id) {
+          const newHp = Math.max(0, u.hp - result.damage);
+          const dead = newHp <= 0;
+          if (dead) addLog(`💀 ${u.emoji} ${u.name} ถูกกำจัด!`, 'death');
+          return { ...u, hp: newHp, isDead: dead };
+        }
+        return u;
+      });
+    });
+
+    // Apply cooldown to attacker
+    updatedUnits = updatedUnits.map(u => {
+      if (u.id === attacker.id) {
+        return { ...u, cooldowns: { ...u.cooldowns, [skill.id]: skill.cooldown }, hasActed: true };
+      }
+      return u;
+    });
+
+    setUnits(updatedUnits);
+  }
+
+  // --- Execute Heal ---
+  function executeHeal(healer: PetUnit, mainTarget: PetUnit, skill: Skill) {
+    const targets = skill.aoe > 0
+      ? units.filter(u => u.team === healer.team && !u.isDead && hexDistance(mainTarget.row, mainTarget.col, u.row, u.col) <= skill.aoe)
+      : [mainTarget];
+
+    let updatedUnits = [...units];
+    targets.forEach(target => {
+      const healAmount = calculateHeal(healer, target, skill);
+      addLog(`${healer.emoji} ${healer.name} ใช้ ${skill.icon} ${skill.name} → ${target.emoji} ${target.name}: +${healAmount} HP`, 'heal');
+      addPopup(target.row, target.col, healAmount, 'heal');
+
+      updatedUnits = updatedUnits.map(u => u.id === target.id ? { ...u, hp: Math.min(u.maxHp, u.hp + healAmount) } : u);
+    });
+
+    updatedUnits = updatedUnits.map(u => u.id === healer.id ? { ...u, cooldowns: { ...u.cooldowns, [skill.id]: skill.cooldown }, hasActed: true } : u);
+    setUnits(updatedUnits);
+  }
+
+  // --- Enemy AI Execution ---
+  function executeEnemyTurn() {
+    if (phaseRef.current === 'victory' || phaseRef.current === 'defeat') return;
+    if (!activeUnit || activeUnit.isDead) { advanceTurn(); return; }
+    const decision = enemyDecide(activeUnit, unitsRef.current, GRID_ROWS, GRID_COLS);
+
+    // Move if needed
+    if (decision.moveTarget) {
+      setUnits(prev => prev.map(u =>
+        u.id === activeUnit.id ? { ...u, row: decision.moveTarget!.row, col: decision.moveTarget!.col, hasMoved: true } : u
+      ));
+      addLog(`${activeUnit.emoji} ${activeUnit.name} เคลื่อนที่!`, 'info');
+    }
+
+    // Attack
+    if (decision.action === 'attack' && decision.targetId) {
+      const target = unitsRef.current.find(u => u.id === decision.targetId);
+      const skill = activeUnit.skills.find(s => s.id === decision.skillId) || activeUnit.skills[0];
+      if (target && !target.isDead) {
+        setTimeout(() => {
+          executeAttack(activeUnit, target, skill);
+          setTimeout(() => advanceTurn(), 600);
+        }, decision.moveTarget ? 400 : 0);
+        return;
+      }
+    }
+
+    setTimeout(() => advanceTurn(), 600);
+  }
+
+  // --- Player Click on Hex Cell ---
+  function handleCellClick(row: number, col: number) {
+    if (!isPlayerTurn || phase === 'animating' || phase === 'victory' || phase === 'defeat') return;
+
+    const key = `${row},${col}`;
+
+    // Phase: Select Move Target
+    if (phase === 'select_move' && highlightedCells.has(key)) {
+      setUnits(prev => prev.map(u =>
+        u.id === activeUnit.id ? { ...u, row, col, hasMoved: true } : u
+      ));
+      addLog(`${activeUnit.emoji} ${activeUnit.name} เคลื่อนที่ไปช่อง (${row},${col})`, 'info');
+      setPhase('select_action');
+      setHighlightedCells(new Set());
+      return;
+    }
+
+    // Phase: Select Target (Attack or Heal)
+    if (phase === 'select_target' && selectedSkill) {
+      const targetUnit = units.find(u => u.row === row && u.col === col && !u.isDead);
+      if (targetUnit && targetablePets.has(targetUnit.id)) {
+        if (selectedSkill.heal) {
+          executeHeal(activeUnit, targetUnit, selectedSkill);
+        } else {
+          executeAttack(activeUnit, targetUnit, selectedSkill);
+        }
+        setSelectedSkill(null);
+        setTargetablePets(new Set());
+        setTimeout(() => advanceTurn(), 600);
+        return;
+      }
+    }
+  }
+
+  // --- Player: Select "Move" ---
+  function handleSelectMove() {
+    if (!activeUnit || activeUnit.hasMoved) return;
+    const cells = getReachableCells(activeUnit, units, GRID_ROWS, GRID_COLS, 2);
+    setHighlightedCells(new Set(cells.map(c => `${c.row},${c.col}`)));
+    setPhase('select_move');
+    setSelectedSkill(null);
+    setTargetablePets(new Set());
+  }
+
+  // --- Player: Select a Skill ---
+  function handleSelectSkill(skill: Skill) {
+    if (!activeUnit || activeUnit.hasActed) return;
+    if (skill.type === 'passive') {
+      // Guard: boost DEF this turn
+      addLog(`${activeUnit.emoji} ${activeUnit.name} ตั้งรับ! DEF +50% เทิร์นนี้`, 'info');
+      setUnits(prev => prev.map(u => u.id === activeUnit.id ? { ...u, hasActed: true } : u));
+      setTimeout(() => advanceTurn(), 400);
+      return;
+    }
+
+    const cd = activeUnit.cooldowns[skill.id] || 0;
+    if (cd > 0) return; // On cooldown
+
+    const targets = getTargetableCells(activeUnit, skill, units);
+    if (targets.length === 0) {
+      addLog(`❌ ไม่มีเป้าหมายในระยะสำหรับ ${skill.name}!`, 'info');
+      return;
+    }
+
+    setSelectedSkill(skill);
+    setTargetablePets(new Set(targets.map(t => t.id)));
+    setHighlightedCells(new Set(targets.map(t => `${t.row},${t.col}`)));
+    setPhase('select_target');
+  }
+
+  // --- Render Loading ---
+  if (isLoading) {
+    return (
+      <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+        <h2 style={{ marginBottom: '1rem' }}>🔄 Loading from Supabase...</h2>
+        <p style={{ opacity: 0.7 }}>ดึงข้อมูลสัตว์เลี้ยงและคำนวณค่า Care Stats</p>
+      </div>
+    );
+  }
+
+  // --- Render Helpers ---
+  function getUnitAt(row: number, col: number): PetUnit | undefined {
+    return units.find(u => u.row === row && u.col === col && !u.isDead);
+  }
+
+  function getCellClass(row: number, col: number): string {
+    const unit = getUnitAt(row, col);
+    const key = `${row},${col}`;
+    let cls = 'hex-cell';
+    if (unit) cls += ` ${unit.team}`;
+    if (unit && activeUnit && unit.id === activeUnit.id && isPlayerTurn) cls += ' active-unit';
+    if (highlightedCells.has(key)) cls += ' highlight';
+    if (targetablePets.size > 0 && unit && targetablePets.has(unit.id)) cls += ' target-glow';
+    return cls;
+  }
+
+  // --- Victory / Defeat Overlay ---
+  if (phase === 'victory' || phase === 'defeat') {
+    return (
+      <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white', background: 'rgba(0,0,0,0.85)' }}>
+        <h1 style={{ fontSize: '4rem', marginBottom: '1rem', color: phase === 'victory' ? '#feca57' : '#ff6b6b' }}>
+          {phase === 'victory' ? 'VICTORY!' : 'DEFEAT'}
+        </h1>
+        
+        {isSaving ? (
+          <p style={{ fontSize: '1.2rem', margin: '2rem 0' }}>⏳ กำลังบันทึกผลการต่อสู้ลงฐานข้อมูล...</p>
+        ) : reward ? (
+          <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center', minWidth: '300px', animation: 'popup 0.5s ease-out' }}>
+            <h3 style={{ marginBottom: '1rem', color: '#1dd1a1' }}>รางวัลที่ได้รับ</h3>
+            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>🪙 +{reward.coins} Pet Coins</p>
+            <hr style={{ margin: '1.5rem 0', opacity: 0.2 }} />
+            <h3 style={{ marginBottom: '1rem', color: '#ff6b6b' }}>สถานะสัตว์เลี้ยงที่เสียไป</h3>
+            <p>⚡ Energy: -{reward.energyCost}</p>
+            <p>💖 Happiness: -{reward.happinessCost}</p>
+          </div>
+        ) : (
+          <p style={{ color: '#ff6b6b', margin: '2rem 0' }}>❌ บันทึกผลการต่อสู้ล้มเหลว</p>
+        )}
+
+        <button 
+          className="btn" 
+          style={{ marginTop: '2rem', padding: '1rem 3rem', fontSize: '1.2rem', background: 'var(--primary-gradient)', border: 'none', borderRadius: '12px', color: 'white', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 15px rgba(138, 43, 226, 0.4)' }}
+          onClick={onBack}
+          disabled={isSaving}
+        >
+          {isSaving ? 'กำลังบันทึก...' : 'กลับหน้าหลัก'}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '0.5rem' }}>
+      {/* Header */}
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <button className="btn-icon" onClick={onBack} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'white' }}>
+          <ChevronLeft size={24} />
+        </button>
+        <div style={{ textAlign: 'center' }}>
+          <h2 style={{ fontSize: '1rem' }}>Ranked PvP — Turn {turnNumber}</h2>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            {isPlayerTurn
+              ? `🎮 Your Turn: ${activeUnit?.emoji} ${activeUnit?.name}`
+              : `🤖 Enemy Turn: ${activeUnit?.emoji} ${activeUnit?.name}`
+            }
+          </span>
+        </div>
+        {/* Timer */}
+        <div className="timer-container" style={{ width: '45px', height: '45px' }}>
+          <span className={`timer-text ${timer <= 5 ? 'danger' : ''}`} style={{ fontSize: '1.3rem' }}>
+            {isPlayerTurn ? timer : '—'}
+          </span>
+        </div>
+      </header>
+
+      {/* Turn Order Bar */}
+      <div style={{ display: 'flex', gap: '0.3rem', justifyContent: 'center', padding: '0.3rem 0' }}>
+        {turnOrderIds.map((id, i) => {
+          const u = units.find(unit => unit.id === id);
+          if (!u || u.isDead) return null;
+          return (
+            <div key={u.id} style={{
+              width: '32px', height: '32px', borderRadius: '50%',
+              background: i === currentTurnIdx ? 'rgba(0,255,255,0.3)' : 'rgba(255,255,255,0.05)',
+              border: `2px solid ${i === currentTurnIdx ? 'var(--accent-color)' : ELEMENT_COLORS[u.element]}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '1rem', transition: 'all 0.3s',
+              transform: i === currentTurnIdx ? 'scale(1.2)' : 'scale(1)',
+            }}>
+              {u.emoji}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Hex Grid Board */}
+      <div className="hex-grid glass-panel" style={{ flex: 1, padding: '0.8rem 0.5rem', overflow: 'visible', position: 'relative' }}>
+        {Array.from({ length: GRID_ROWS }, (_, r) => (
+          <div key={r} className="hex-row">
+            {Array.from({ length: GRID_COLS }, (_, c) => {
+              const unit = getUnitAt(r, c);
+              return (
+                <div
+                  key={`${r}-${c}`}
+                  className={getCellClass(r, c)}
+                  onClick={() => handleCellClick(r, c)}
+                >
+                  <div className="hex-cell-bg" />
+                  {unit && (
+                    <>
+                      <span className="pet-token">{unit.emoji}</span>
+                      <div className="hp-bar-mini">
+                        <div
+                          className={`hp-bar-fill ${(unit.hp / unit.maxHp) < 0.3 ? 'danger' : ''}`}
+                          style={{ width: `${(unit.hp / unit.maxHp) * 100}%` }}
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+
+        {/* Damage Popups — Rendered as overlay OUTSIDE hex cells to avoid clip-path */}
+        {damagePopups.map(p => {
+          // Calculate approximate pixel position from grid row/col
+          const xBase = p.col * 64 + (p.row % 2 === 1 ? 32 : 0) + 30;
+          const yBase = p.row * 52 + 30;
+          return (
+            <span
+              key={p.id}
+              className={`damage-popup ${p.type}`}
+              style={{
+                left: `${xBase}px`,
+                top: `${yBase}px`,
+              }}
+            >
+              {p.type === 'heal' ? `+${p.amount}` : `-${p.amount}`}
+            </span>
+          );
+        })}
+      </div>
+
+      {/* Battle Log */}
+      <div ref={logRef} className="glass-panel" style={{
+        padding: '0.5rem 0.8rem', maxHeight: '60px', overflowY: 'auto',
+        fontSize: '0.7rem', lineHeight: '1.4',
+      }}>
+        {logs.slice(-5).map((log, i) => (
+          <div key={i} style={{
+            color: log.type === 'damage' ? '#ff6b6b'
+              : log.type === 'heal' ? '#1dd1a1'
+              : log.type === 'critical' ? '#feca57'
+              : log.type === 'death' ? '#a55eea'
+              : 'var(--text-muted)',
+            opacity: i === logs.slice(-5).length - 1 ? 1 : 0.6,
+          }}>
+            {log.message}
+          </div>
+        ))}
+      </div>
+
+      {/* Action Bar (Always Show Player's Box) */}
+      {(() => {
+        // Find which player's skills to display
+        const displayUnit = isPlayerTurn && activeUnit?.team === 'player'
+          ? activeUnit
+          : units.find(u => turnOrderIds.includes(u.id) && u.team === 'player' && !u.isDead);
+
+        return (
+          <div className="glass-panel" style={{ padding: '0.8rem', opacity: isPlayerTurn ? 1 : 0.7 }}>
+            {/* Move Button */}
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', justifyContent: 'center' }}>
+              <button
+                className={`skill-btn ${phase === 'select_move' ? 'selected' : ''}`}
+                onClick={handleSelectMove}
+                disabled={!isPlayerTurn || activeUnit?.hasMoved}
+                style={{ width: 'auto', padding: '0.4rem 1rem', opacity: (!isPlayerTurn || activeUnit?.hasMoved) ? 0.4 : 1, fontSize: '0.8rem', gap: '0.3rem' }}
+                title="เดิน (1-2 ช่อง)"
+              >
+                <Move size={16} /> Move
+              </button>
+            </div>
+
+            {/* Skills */}
+            <div className="skill-bar">
+              {displayUnit?.skills.map(skill => {
+                const cd = displayUnit.cooldowns[skill.id] || 0;
+                const isDisabled = !isPlayerTurn || activeUnit?.hasActed || (cd > 0);
+                return (
+                  <button
+                    key={skill.id}
+                    className={`skill-btn ${skill.type === 'ultimate' ? 'ultimate' : ''} ${selectedSkill?.id === skill.id ? 'selected' : ''}`}
+                    onClick={() => !isDisabled && handleSelectSkill(skill)}
+                    title={`${skill.name} — ${skill.description}${cd > 0 ? ` (CD: ${cd})` : ''}`}
+                    style={{ opacity: isDisabled ? 0.35 : 1, position: 'relative' }}
+                  >
+                    <span>{skill.icon}</span>
+                    {cd > 0 && (
+                      <span style={{
+                        position: 'absolute', top: '-5px', right: '-5px',
+                        background: '#ff6b6b', color: 'white', borderRadius: '50%',
+                        width: '18px', height: '18px', fontSize: '0.6rem',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontWeight: 800,
+                      }}>{cd}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Enemy Turn Indicator Overlay */}
+      {!isPlayerTurn && phase === 'enemy_turn' && (
+        <div className="glass-panel" style={{ padding: '1rem', textAlign: 'center' }}>
+          <span style={{ fontSize: '0.9rem', color: '#ff6b6b' }}>
+            🤖 {activeUnit?.emoji} {activeUnit?.name} กำลังคิด...
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
