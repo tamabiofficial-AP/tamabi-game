@@ -25,10 +25,8 @@ const ELEMENT_COLORS: Record<string, string> = {
 // Hardcoded Prototype IDs
 const ENEMY_ID = '11111111-1111-1111-1111-111111111111';
 
-const SPECIES_EMOJI: Record<string, string> = {
-  Dragon: '🐉', Eagle: '🦅', Turtle: '🐢',
-  Snake: '🐍', Bat: '🦇', Wolf: '🐺'
-};
+import { SPECIES_EMOJI, TRAITS } from '../engine/petData';
+import type { TraitName } from '../engine/petData';
 const SPECIES_RANGED = ['Eagle', 'Bat'];
 
 interface BattleScreenProps {
@@ -69,7 +67,7 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
       const { data, error } = await supabase
         .from('pets')
         .select(`
-          id, owner_id, name, happiness, hunger, health, energy,
+          id, owner_id, name, trait, happiness, hunger, health, energy,
           species_base_stats (
             name, element, base_hp, base_atk, base_def, base_spd
           )
@@ -98,6 +96,9 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
           const eff_happiness = Math.max(50, pet.happiness) / 100;
           const eff_health = Math.max(50, pet.health) / 100;
 
+          // Apply trait multipliers
+          const traitDef = TRAITS[(pet.trait as TraitName) || 'Normal'] || TRAITS['Normal'];
+
           const isPlayer = pet.owner_id === playerId;
           
           // Positioning: Player on left (col 0), Enemy on right (col 3)
@@ -124,9 +125,9 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
             team: isPlayer ? 'player' : 'enemy',
             maxHp: Math.round(s.base_hp * eff_hunger),
             hp: Math.round(s.base_hp * eff_hunger),
-            atk: Math.round(s.base_atk * eff_happiness),
-            def: Math.round(s.base_def * eff_hunger),
-            spd: Math.round(s.base_spd * eff_health),
+            atk: Math.round(s.base_atk * eff_happiness * traitDef.bonusAtk),
+            def: Math.round(s.base_def * eff_hunger * traitDef.bonusDef),
+            spd: Math.round(s.base_spd * eff_health * traitDef.bonusSpd),
             skills: makeSkills(s.element, SPECIES_RANGED.includes(s.name)),
             cooldowns: {},
             statusEffects: [],

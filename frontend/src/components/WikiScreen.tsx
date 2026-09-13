@@ -2,10 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronLeft, Book, ShieldAlert } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
-const SPECIES_EMOJI: Record<string, string> = {
-  Dragon: '🐉', Eagle: '🦅', Turtle: '🐢',
-  Snake: '🐍', Bat: '🦇', Wolf: '🐺'
-};
+import { SPECIES_EMOJI } from '../engine/petData';
 
 const ELEMENT_COLORS: Record<string, string> = {
   fire: '#ff6b6b', water: '#54a0ff', earth: '#c8a96e',

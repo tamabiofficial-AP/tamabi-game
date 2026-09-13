@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS pets (
     owner_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     species_id INTEGER NOT NULL REFERENCES species_base_stats(id),
     name VARCHAR(50) NOT NULL,
+    trait VARCHAR(30) DEFAULT 'Normal' NOT NULL,
     
     -- Care Stats (0-100)
     happiness INTEGER DEFAULT 50 NOT NULL,
@@ -116,14 +117,42 @@ TRUNCATE TABLE pets CASCADE;
 TRUNCATE TABLE profiles CASCADE;
 TRUNCATE TABLE species_base_stats CASCADE;
 
--- Insert Species
-INSERT INTO species_base_stats (id, name, element, base_hp, base_atk, base_def, base_spd, description) VALUES
-(1, 'Dragon', 'fire', 500, 120, 60, 85, 'มังกรไฟโจมตีรุนแรง'),
-(2, 'Eagle', 'nature', 380, 100, 40, 110, 'นกอินทรีความเร็วสูง'),
-(3, 'Turtle', 'earth', 700, 70, 100, 50, 'เต่าดินถึกทน'),
-(4, 'Snake', 'nature', 420, 110, 50, 95, 'งูพิษสายธรรมชาติ'),
-(5, 'Bat', 'dark', 350, 130, 35, 120, 'ค้างคาวแห่งความมืด'),
-(6, 'Wolf', 'water', 550, 90, 80, 70, 'หมาป่าวารี');
+-- 5. Insert Base Species Data (24 Species, 4 for each element)
+-- Make sure to clear old data if re-running
+TRUNCATE TABLE species_base_stats CASCADE;
+ALTER SEQUENCE species_base_stats_id_seq RESTART WITH 1;
+
+INSERT INTO species_base_stats (name, element, base_hp, base_atk, base_def, base_spd, description) VALUES
+-- Fire (ATK focused)
+('Dragon', 'fire', 120, 30, 15, 10, 'มังกรเพลิงผู้เกรี้ยวกราด พลังโจมตีรุนแรง'),
+('Phoenix', 'fire', 100, 25, 10, 20, 'วิหคเพลิงที่คืนชีพจากเถ้าถ่าน โจมตีและหลบหลีกได้ดี'),
+('Fox', 'fire', 90, 22, 10, 25, 'จิ้งจอกเก้าหางพ่นไฟ ปราดเปรียวและดุดัน'),
+('Lion', 'fire', 140, 28, 18, 12, 'ราชสีห์เพลิงผู้สง่างาม พลังทำลายล้างสูง'),
+-- Water (Balanced / HP focused)
+('Turtle', 'water', 150, 15, 30, 5, 'เต่าวารี เกราะหนาทนทานต่อทุกการโจมตี'),
+('Shark', 'water', 110, 25, 15, 18, 'ฉลามนักล่า ดุร้ายและกัดเจ็บมาก'),
+('Penguin', 'water', 100, 18, 20, 15, 'เพนกวินน้ำแข็ง น่ารักแต่ถึกทน'),
+('Dolphin', 'water', 120, 20, 15, 22, 'โลมาแสนรู้ พลิ้วไหวและโจมตีต่อเนื่อง'),
+-- Earth (DEF focused)
+('Bear', 'earth', 180, 20, 25, 5, 'หมีภูเขา เลือดเยอะและอึดทน'),
+('Golem', 'earth', 200, 15, 35, 2, 'หินผามีชีวิต พลังป้องกันสูงสุด'),
+('Rhino', 'earth', 160, 22, 28, 8, 'แรดหินชนแหลก พุ่งชนทะลวงเกราะ'),
+('Mole', 'earth', 90, 18, 20, 15, 'ตุ่นนักขุด มุดดินหลบการโจมตีได้ดี'),
+-- Wind (SPD focused)
+('Eagle', 'wind', 90, 22, 10, 30, 'นกอินทรีวายุ โจมตีรวดเร็วดั่งสายลม'),
+('Falcon', 'wind', 80, 25, 8, 35, 'เหยี่ยวเวหา รวดเร็วที่สุดในหมู่นก'),
+('Bat', 'wind', 70, 20, 12, 28, 'ค้างคาวดูดเลือด ดูดพลังชีวิตศัตรู'),
+('Butterfly', 'wind', 60, 15, 8, 40, 'ผีเสื้อพายุ พลิ้วไหวจนโจมตียาก'),
+-- Light (Balanced, Magic)
+('Unicorn', 'light', 130, 20, 20, 20, 'ม้ามีเขาแห่งแสงสว่าง สมดุลในทุกด้าน'),
+('Owl', 'light', 100, 25, 12, 18, 'นกฮูกนักปราชญ์ โจมตีด้วยแสงสว่าง'),
+('Pegasus', 'light', 110, 22, 15, 25, 'ม้ามีปีก บินโฉบโจมตีจากฟากฟ้า'),
+('Swan', 'light', 120, 18, 18, 22, 'หงส์ขาวผู้สง่างาม พลังเยียวยาสูง'),
+-- Dark (High ATK/SPD, Low DEF)
+('Snake', 'dark', 90, 28, 10, 25, 'งูพิษแห่งเงามืด โจมตีติดคริติคอลบ่อย'),
+('Spider', 'dark', 100, 24, 15, 20, 'แมงมุมปีศาจ พ่นใยพิษรุนแรง'),
+('Panther', 'dark', 110, 26, 12, 28, 'เสือดำนักฆ่า ซุ่มโจมตีในความมืด'),
+('Crow', 'dark', 80, 22, 8, 32, 'อีกาแห่งลางร้าย รวดเร็วและอันตราย');
 
 -- Insert Dummy Profiles
 INSERT INTO profiles (id, username, pet_coins, star_points) VALUES 

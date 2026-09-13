@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
+import { getRandomTrait } from './petData';
 
 export interface GachaResult {
   success: boolean;
@@ -50,10 +51,12 @@ export async function rollGacha(playerId: string, cost: number): Promise<GachaRe
     }
 
     // Mint the new pet
+    const trait = getRandomTrait();
     const newPetData = {
       owner_id: playerId,
       species_id: randomSpecies.id,
       name: randomSpecies.name,
+      trait: trait,
       happiness: 50,
       hunger: 50,
       health: 100,

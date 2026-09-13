@@ -10,10 +10,7 @@ import ShopScreen from './components/ShopScreen';
 import TeamSelectScreen from './components/TeamSelectScreen';
 import { ITEMS } from './engine/itemSystem';
 
-const SPECIES_EMOJI: Record<string, string> = {
-  Dragon: '🐉', Eagle: '🦅', Turtle: '🐢',
-  Snake: '🐍', Bat: '🦇', Wolf: '🐺'
-};
+import { SPECIES_EMOJI } from './engine/petData';
 
 // Stat Bar Component
 const StatBar = ({ label, value, colorVar, icon: Icon }: any) => (
@@ -290,6 +287,9 @@ export default function App() {
 
         <h1 style={{ zIndex: 1, textAlign: 'center' }}>{pet.name}</h1>
         <p style={{ zIndex: 1, textTransform: 'capitalize' }}>{speciesName} • {element}</p>
+        <span style={{ zIndex: 1, marginTop: '0.5rem', padding: '0.2rem 0.8rem', background: 'rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '0.8rem', color: 'var(--text-main)', border: '1px solid rgba(255,255,255,0.2)' }}>
+          Trait: {pet.trait || 'Normal'}
+        </span>
       </main>
 
       {/* Care Dashboard */}

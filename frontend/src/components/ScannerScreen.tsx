@@ -4,10 +4,7 @@ import { processScanResult } from '../engine/scannerSystem';
 import type { ScanResult } from '../engine/scannerSystem';
 import { Scanner } from '@yudiel/react-qr-scanner';
 
-const SPECIES_EMOJI: Record<string, string> = {
-  Dragon: '🐉', Eagle: '🦅', Turtle: '🐢',
-  Snake: '🐍', Bat: '🦇', Wolf: '🐺'
-};
+import { SPECIES_EMOJI } from '../engine/petData';
 
 interface ScannerScreenProps {
   playerId: string;
@@ -85,6 +82,9 @@ export default function ScannerScreen({ playerId, onBack }: ScannerScreenProps) 
             </div>
             <h3>{result.pet.name}</h3>
             <p style={{ textTransform: 'capitalize', color: 'var(--text-muted)' }}>{result.pet.species_base_stats.element} Element</p>
+            <span style={{ display: 'inline-block', marginTop: '0.5rem', padding: '0.2rem 0.8rem', background: 'rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '0.8rem', color: 'var(--text-main)' }}>
+              Trait: {result.pet.trait || 'Normal'}
+            </span>
             
             <button className="btn" style={{ marginTop: '2rem', width: '100%', justifyContent: 'center' }} onClick={onBack}>
               รับเข้าคอลเล็กชัน

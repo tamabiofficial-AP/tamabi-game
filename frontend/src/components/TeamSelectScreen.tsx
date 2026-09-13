@@ -1,10 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronLeft, Play, ShieldAlert, CheckCircle2 } from 'lucide-react';
 
-const SPECIES_EMOJI: Record<string, string> = {
-  Dragon: '🐉', Eagle: '🦅', Turtle: '🐢',
-  Snake: '🐍', Bat: '🦇', Wolf: '🐺'
-};
+import { SPECIES_EMOJI } from '../engine/petData';
 
 const ELEMENT_COLORS: Record<string, string> = {
   fire: '#ff6b6b', water: '#54a0ff', earth: '#c8a96e',
@@ -95,17 +92,27 @@ export default function TeamSelectScreen({ playerPets, onStartBattle, onBack }: 
               </div>
 
               <h4 style={{ margin: 0, fontSize: '1rem' }}>{pet.name}</h4>
-              <span style={{ 
-                fontSize: '0.7rem', 
-                textTransform: 'capitalize', 
-                background: color + '33', 
-                color: color,
-                padding: '2px 8px', 
-                borderRadius: '10px',
-                marginTop: '0.3rem'
-              }}>
-                {pet.species_base_stats.element}
-              </span>
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                <span style={{ 
+                  fontSize: '0.7rem', 
+                  textTransform: 'capitalize', 
+                  background: color + '33', 
+                  color: color,
+                  padding: '2px 8px', 
+                  borderRadius: '10px'
+                }}>
+                  {pet.species_base_stats.element}
+                </span>
+                <span style={{ 
+                  fontSize: '0.7rem', 
+                  background: 'rgba(255,255,255,0.1)', 
+                  color: 'var(--text-main)',
+                  padding: '2px 8px', 
+                  borderRadius: '10px'
+                }}>
+                  {pet.trait || 'Normal'}
+                </span>
+              </div>
 
               <div style={{ marginTop: '0.8rem', width: '100%', fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between' }}>
                 <span>HP: {pet.health}%</span>

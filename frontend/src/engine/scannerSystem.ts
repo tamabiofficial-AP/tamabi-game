@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
+import { getRandomTrait } from './petData';
 
 export interface ScanResult {
   success: boolean;
@@ -27,10 +28,12 @@ export async function processScanResult(qrCodeData: string, playerId: string): P
     const randomSpecies = speciesList[Math.floor(Math.random() * speciesList.length)];
 
     // 2. Mint (Insert) new pet into the database
+    const trait = getRandomTrait();
     const newPetData = {
       owner_id: playerId,
       species_id: randomSpecies.id,
       name: `${randomSpecies.name}`,
+      trait: trait,
       happiness: 50, // newly caught pets are neutral
       hunger: 50,
       health: 100,
