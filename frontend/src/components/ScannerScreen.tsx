@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Camera, QrCode, Scan, ChevronLeft } from 'lucide-react';
+import React, { useState } from 'react';
+import { ChevronLeft } from 'lucide-react';
 import { processScanResult } from '../engine/scannerSystem';
 import type { ScanResult } from '../engine/scannerSystem';
+import { Scanner } from '@yudiel/react-qr-scanner';
 
 const SPECIES_EMOJI: Record<string, string> = {
   Dragon: '🐉', Eagle: '🦅', Turtle: '🐢',
@@ -14,19 +15,22 @@ interface ScannerScreenProps {
 }
 
 export default function ScannerScreen({ playerId, onBack }: ScannerScreenProps) {
-  const [isScanning, setIsScanning] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<ScanResult | null>(null);
 
-  // Handle Mock Scan
-  const handleSimulateScan = async () => {
-    setIsScanning(true);
-    
-    // Simulate camera/processing delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    const scanRes = await processScanResult("mock_qr_code_123", playerId);
-    setResult(scanRes);
-    setIsScanning(false);
+  const handleScan = async (detectedCodes: any[]) => {
+    if (detectedCodes && detectedCodes.length > 0 && !isProcessing && !result) {
+      const qrData = detectedCodes[0].rawValue;
+      setIsProcessing(true);
+      
+      const scanRes = await processScanResult(qrData, playerId);
+      setResult(scanRes);
+      setIsProcessing(false);
+    }
+  };
+
+  const handleScanError = (error: unknown) => {
+    console.error('QR Scanner Error:', error);
   };
 
   return (
@@ -37,7 +41,7 @@ export default function ScannerScreen({ playerId, onBack }: ScannerScreenProps) 
           <ChevronLeft size={24} />
         </button>
         <h2 style={{ fontSize: '1.2rem', textAlign: 'center', flex: 1 }}>Tamabi Scanner</h2>
-        <div style={{ width: '40px' }} /> {/* Spacer */}
+        <div style={{ width: '40px' }} />
       </header>
 
       {/* Main Scanner Area */}
@@ -45,28 +49,22 @@ export default function ScannerScreen({ playerId, onBack }: ScannerScreenProps) 
         
         {/* Viewfinder UI */}
         {!result && (
-          <div style={{ position: 'relative', width: '250px', height: '250px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {/* Viewfinder Corners */}
-            <div style={{ position: 'absolute', top: 0, left: 0, width: '40px', height: '40px', borderTop: '4px solid var(--primary-color)', borderLeft: '4px solid var(--primary-color)' }} />
-            <div style={{ position: 'absolute', top: 0, right: 0, width: '40px', height: '40px', borderTop: '4px solid var(--primary-color)', borderRight: '4px solid var(--primary-color)' }} />
-            <div style={{ position: 'absolute', bottom: 0, left: 0, width: '40px', height: '40px', borderBottom: '4px solid var(--primary-color)', borderLeft: '4px solid var(--primary-color)' }} />
-            <div style={{ position: 'absolute', bottom: 0, right: 0, width: '40px', height: '40px', borderBottom: '4px solid var(--primary-color)', borderRight: '4px solid var(--primary-color)' }} />
-            
-            {/* Center Icon */}
-            <QrCode size={80} color="var(--border-glass)" style={{ animation: isScanning ? 'pulse-glow 1s infinite' : 'none' }} />
-            
-            {/* Scanning Line */}
-            {isScanning && (
-              <div style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '4px',
-                background: 'var(--primary-color)',
-                boxShadow: '0 0 10px var(--primary-color)',
-                animation: 'scan-line 1.5s linear infinite'
-              }} />
+          <div style={{ position: 'relative', width: '100%', maxWidth: '350px', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 0 20px rgba(0,0,0,0.5)' }}>
+            <Scanner 
+              onScan={handleScan}
+              onError={handleScanError}
+              components={{
+                audio: false,
+                finder: true,
+              }}
+              styles={{
+                container: { width: '100%' },
+              }}
+            />
+            {isProcessing && (
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.2rem', fontWeight: 'bold' }}>
+                กำลังตรวจสอบ...
+              </div>
             )}
           </div>
         )}
@@ -110,31 +108,12 @@ export default function ScannerScreen({ playerId, onBack }: ScannerScreenProps) 
       {/* Controls */}
       {!result && (
         <div style={{ padding: '2rem 1rem', textAlign: 'center' }}>
-          <p style={{ marginBottom: '1.5rem' }}>
-            {isScanning ? 'กำลังตรวจสอบคิวอาร์โค้ด...' : 'สแกน QR Code จากสินค้าเพื่อรับไอเทมหรือมอนสเตอร์ใหม่!'}
+          <p style={{ marginBottom: '1.5rem', color: 'var(--text-muted)' }}>
+            {isProcessing ? 'โปรดรอสักครู่...' : 'หันกล้องไปที่ QR Code ของเกม Tamabi เพื่อรับมอนสเตอร์!'}
           </p>
-          <button 
-            className="btn" 
-            onClick={handleSimulateScan}
-            disabled={isScanning}
-            style={{ width: '100%', justifyContent: 'center', padding: '1rem', fontSize: '1.1rem' }}
-          >
-            <Scan size={24} /> {isScanning ? 'Scanning...' : 'Simulate Scan (จำลอง)'}
-          </button>
         </div>
       )}
       
-      {/* Inject animation keyframes for scan line */}
-      <style>
-        {`
-          @keyframes scan-line {
-            0% { top: 0%; opacity: 0; }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% { top: 100%; opacity: 0; }
-          }
-        `}
-      </style>
     </div>
   );
 }

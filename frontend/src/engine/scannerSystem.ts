@@ -8,8 +8,10 @@ export interface ScanResult {
 
 export async function processScanResult(qrCodeData: string, playerId: string): Promise<ScanResult> {
   try {
-    // 1. In a real app, we would validate the qrCodeData (e.g. check if it's a valid promo code or location tag)
-    // For the prototype, we will just accept any scan and randomly pick a species to mint.
+    // Validate the qrCodeData
+    if (!qrCodeData || !qrCodeData.toUpperCase().includes('TAMABI')) {
+      return { success: false, message: 'QR Code นี้ไม่สามารถใช้สแกนหามอนสเตอร์ได้' };
+    }
     
     // Fetch all available species
     const { data: speciesList, error: speciesErr } = await supabase
