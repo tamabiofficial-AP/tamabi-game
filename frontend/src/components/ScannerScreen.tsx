@@ -54,7 +54,6 @@ export default function ScannerScreen({ playerId, onBack }: ScannerScreenProps) 
               onScan={handleScan}
               onError={handleScanError}
               components={{
-                audio: false,
                 finder: true,
               }}
               styles={{
