@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Heart, Utensils, Activity, Sparkles, Play, Info, Zap, ChevronLeft, ChevronRight, Book, LogOut, ShoppingBag } from 'lucide-react';
+import { Heart, Utensils, Activity, Sparkles, Play, Zap, ChevronLeft, ChevronRight, Book, LogOut, ShoppingBag, X } from 'lucide-react';
 import { supabase } from './lib/supabaseClient';
 import './index.css';
 import BattleScreen from './components/BattleScreen';
@@ -8,13 +8,12 @@ import WikiScreen from './components/WikiScreen';
 import AuthScreen from './components/AuthScreen';
 import ShopScreen from './components/ShopScreen';
 import TeamSelectScreen from './components/TeamSelectScreen';
+import { ITEMS } from './engine/itemSystem';
 
 const SPECIES_EMOJI: Record<string, string> = {
   Dragon: '🐉', Eagle: '🦅', Turtle: '🐢',
   Snake: '🐍', Bat: '🦇', Wolf: '🐺'
 };
-
-// --- COMPONENTS ---
 
 // Stat Bar Component
 const StatBar = ({ label, value, colorVar, icon: Icon }: any) => (
@@ -39,7 +38,7 @@ const StatBar = ({ label, value, colorVar, icon: Icon }: any) => (
   </div>
 );
 
-function App() {
+export default function App() {
   const [currentScreen, setCurrentScreen] = useState<'home' | 'battle' | 'team_setup' | 'scanner' | 'wiki' | 'shop'>('home');
   const [isLoading, setIsLoading] = useState(true);
   
@@ -51,6 +50,10 @@ function App() {
   const [activePetIndex, setActivePetIndex] = useState(0);
   const [selectedPartyIds, setSelectedPartyIds] = useState<string[]>([]);
   const [readiness, setReadiness] = useState(0);
+
+  // Inventory Modal State
+  const [inventoryModalOpen, setInventoryModalOpen] = useState(false);
+  const [inventoryFilter, setInventoryFilter] = useState<'food' | 'toy' | 'medicine'>('food');
 
   const pet = pets[activePetIndex];
 
@@ -85,7 +88,7 @@ function App() {
     if (currentScreen === 'home' && currentUser) {
       loadData();
     }
-  }, [currentScreen, currentUser]); // Reload when returning from battle or logging in
+  }, [currentScreen, currentUser]);
 
   useEffect(() => {
     if (pet) {
@@ -94,23 +97,57 @@ function App() {
     }
   }, [pet]);
 
-  const handleInteract = async (type: string) => {
-    if (!pet) return;
+  const handleUseItem = async (itemId: string) => {
+    if (!pet || !profile || !profile.inventory) return;
     
-    // 1. Optimistic UI Update
+    const qty = profile.inventory[itemId] || 0;
+    if (qty <= 0) return;
+
+    const itemDef = ITEMS[itemId];
+    if (!itemDef) return;
+
+    // 1. Optimistic UI Update (Pet Stats)
     const newPets = [...pets];
     const newPet = { ...pet };
-    if (type === 'feed' && newPet.hunger < 100) newPet.hunger = Math.min(100, pet.hunger + 15);
-    if (type === 'play' && newPet.happiness < 100) newPet.happiness = Math.min(100, pet.happiness + 20);
+    
+    if (itemDef.type === 'food') {
+      newPet.hunger = Math.min(100, pet.hunger + itemDef.effectValue);
+      // Food slightly restores energy too
+      newPet.energy = Math.min(100, pet.energy + Math.floor(itemDef.effectValue / 2));
+    } else if (itemDef.type === 'toy') {
+      newPet.happiness = Math.min(100, pet.happiness + itemDef.effectValue);
+      // Playing reduces energy
+      newPet.energy = Math.max(0, pet.energy - 10);
+      newPet.hunger = Math.max(0, pet.hunger - 10);
+    } else if (itemDef.type === 'medicine') {
+      newPet.health = Math.min(100, pet.health + itemDef.effectValue);
+    }
+    
     newPets[activePetIndex] = newPet;
     setPets(newPets);
 
-    // 2. DB Update
-    const updatePayload: any = {};
-    if (type === 'feed') updatePayload.hunger = newPet.hunger;
-    if (type === 'play') updatePayload.happiness = newPet.happiness;
+    // 2. Optimistic UI Update (Inventory)
+    const newInventory = { ...profile.inventory, [itemId]: qty - 1 };
+    setProfile({ ...profile, inventory: newInventory });
+
+    // 3. DB Update
+    await supabase.from('pets').update({
+      hunger: newPet.hunger,
+      happiness: newPet.happiness,
+      health: newPet.health,
+      energy: newPet.energy
+    }).eq('id', pet.id);
     
-    await supabase.from('pets').update(updatePayload).eq('id', pet.id);
+    await supabase.from('profiles').update({
+      inventory: newInventory
+    }).eq('id', profile.id);
+
+    setInventoryModalOpen(false);
+  };
+
+  const openInventory = (type: 'food' | 'toy' | 'medicine') => {
+    setInventoryFilter(type);
+    setInventoryModalOpen(true);
   };
 
   if (!currentUser) {
@@ -153,12 +190,7 @@ function App() {
         playerId={currentUser} 
         currentCoins={profile?.pet_coins || 0}
         onUpdateCoins={(newBalance) => setProfile(profile ? { ...profile, pet_coins: newBalance } : null)}
-        onBack={() => {
-          setCurrentScreen('home');
-          // We don't fetch new pets here automatically, but wait, if they roll a pet it should show up.
-          // For prototype, we could let the user see it when they restart or we can refactor.
-          // Actually, since currentScreen changes to 'home', the useEffect for 'home' will run and loadData() again!
-        }} 
+        onBack={() => setCurrentScreen('home')} 
       />
     );
   }
@@ -176,8 +208,11 @@ function App() {
   const element = pet.species_base_stats?.element || 'Unknown';
   const emoji = SPECIES_EMOJI[speciesName] || '❓';
 
+  // Filter inventory items based on current tab
+  const availableItems = Object.keys(ITEMS).filter(itemId => ITEMS[itemId].type === inventoryFilter && profile.inventory && profile.inventory[itemId] > 0);
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '1rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '1rem', position: 'relative' }}>
       
       {/* Header / Top Bar */}
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0' }}>
@@ -202,19 +237,16 @@ function App() {
 
       {/* Main Pet Display Area */}
       <main className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
-        {/* Background glow effect based on element */}
         <div style={{ 
           position: 'absolute', width: '200px', height: '200px', 
           background: 'radial-gradient(circle, rgba(255, 107, 107, 0.2) 0%, rgba(0,0,0,0) 70%)',
           top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 0
         }} />
         
-        {/* Readiness Badge */}
         <div style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'rgba(0,0,0,0.5)', padding: '0.4rem 0.8rem', borderRadius: '20px', fontSize: '0.8rem', border: '1px solid rgba(255,255,255,0.1)', zIndex: 1 }}>
           Readiness: <strong style={{ color: readiness >= 80 ? 'var(--stat-health)' : 'var(--stat-hunger)' }}>{readiness}%</strong>
         </div>
 
-        {/* Pet Avatar with Navigation */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', zIndex: 1 }}>
           <button 
             className="btn-icon" 
@@ -246,7 +278,6 @@ function App() {
           </button>
         </div>
 
-        {/* Pagination Dots */}
         <div style={{ display: 'flex', gap: '6px', marginBottom: '1rem', zIndex: 1 }}>
           {pets.map((_, idx) => (
             <div key={idx} style={{ 
@@ -269,15 +300,17 @@ function App() {
         <StatBar label="Hunger (HP/DEF)" value={pet.hunger} colorVar="--stat-hunger" icon={Utensils} />
         <StatBar label="Health (SPD)" value={pet.health} colorVar="--stat-health" icon={Activity} />
         <StatBar label="Energy (Stamina)" value={pet.energy} colorVar="--stat-energy" icon={Zap} />
-        <StatBar label="Aura (PvE Bonus)" value={pet.aura} colorVar="--stat-aura" icon={Sparkles} />
 
         {/* Quick Actions */}
-        <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', justifyContent: 'space-between' }}>
-          <button className="btn" style={{ flex: 1, padding: '0.6rem', fontSize: '0.9rem', justifyContent: 'center' }} onClick={() => handleInteract('feed')}>
+        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.5rem', justifyContent: 'space-between' }}>
+          <button className="btn" style={{ flex: 1, padding: '0.6rem', fontSize: '0.9rem', justifyContent: 'center' }} onClick={() => openInventory('food')}>
             <Utensils size={18} /> Feed
           </button>
-          <button className="btn" style={{ flex: 1, padding: '0.6rem', fontSize: '0.9rem', justifyContent: 'center', background: 'linear-gradient(135deg, #ff6b6b, #e84393)' }} onClick={() => handleInteract('play')}>
+          <button className="btn" style={{ flex: 1, padding: '0.6rem', fontSize: '0.9rem', justifyContent: 'center', background: 'linear-gradient(135deg, #ff6b6b, #e84393)' }} onClick={() => openInventory('toy')}>
             <Heart size={18} /> Play
+          </button>
+          <button className="btn" style={{ flex: 1, padding: '0.6rem', fontSize: '0.9rem', justifyContent: 'center', background: 'linear-gradient(135deg, #2ecc71, #27ae60)' }} onClick={() => openInventory('medicine')}>
+            <Activity size={18} /> Heal
           </button>
         </div>
       </section>
@@ -297,8 +330,8 @@ function App() {
           onClick={() => setCurrentScreen('scanner')}
           style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0.8rem', gap: '0.4rem', border: 'none', cursor: 'pointer' }}
         >
-          <Activity size={24} color="var(--stat-health)" />
-          <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Scan</span>
+          <Sparkles size={24} color="var(--stat-health)" />
+          <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Scanner</span>
         </button>
         <button 
           className="glass-panel" 
@@ -313,13 +346,62 @@ function App() {
           onClick={() => setCurrentScreen('wiki')}
           style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0.8rem', gap: '0.4rem', border: 'none', cursor: 'pointer' }}
         >
-          <Book size={24} color="var(--stat-hunger)" />
+          <Book size={24} color="var(--stat-energy)" />
           <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Wiki</span>
         </button>
       </nav>
 
+      {/* INVENTORY MODAL */}
+      {inventoryModalOpen && (
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 100, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+          <div className="glass-panel" style={{ margin: '1rem', padding: '1.5rem', animation: 'slide-up 0.3s ease-out' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                {inventoryFilter === 'food' ? <Utensils /> : inventoryFilter === 'toy' ? <Heart /> : <Activity />}
+                คลังไอเทม ({inventoryFilter})
+              </h3>
+              <button className="btn-icon" onClick={() => setInventoryModalOpen(false)}>
+                <X size={24} />
+              </button>
+            </div>
+
+            {availableItems.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--text-muted)' }}>
+                <p>คุณไม่มีไอเทมประเภทนี้เลย</p>
+                <button className="btn" style={{ marginTop: '1rem', background: '#feca57', color: 'black' }} onClick={() => { setInventoryModalOpen(false); setCurrentScreen('shop'); }}>
+                  ไปซื้อที่ร้านค้า
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', maxHeight: '40vh', overflowY: 'auto' }}>
+                {availableItems.map(itemId => (
+                  <div key={itemId} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '1rem', textAlign: 'center', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>{ITEMS[itemId].emoji}</div>
+                    <div style={{ fontSize: '0.9rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>{ITEMS[itemId].name}</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>มีอยู่: {profile.inventory[itemId]} ชิ้น</div>
+                    <button 
+                      className="btn" 
+                      style={{ width: '100%', padding: '0.5rem', fontSize: '0.9rem', justifyContent: 'center' }}
+                      onClick={() => handleUseItem(itemId)}
+                    >
+                      ใช้งาน
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <style>
+        {`
+          @keyframes slide-up {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+          }
+        `}
+      </style>
     </div>
   );
 }
-
-export default App;
