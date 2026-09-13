@@ -192,11 +192,44 @@ export default function App() {
     );
   }
 
-  if (isLoading || !profile || !pet) {
+  if (isLoading || !profile) {
     return (
       <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
         <h2 style={{ marginBottom: '1rem' }}>🔄 Loading Tamabi...</h2>
         <p style={{ opacity: 0.7 }}>ดึงข้อมูลโปรไฟล์และสัตว์เลี้ยงจาก Supabase</p>
+      </div>
+    );
+  }
+
+  if (!pet) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '1rem', position: 'relative' }}>
+        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0' }}>
+          <div>
+            <h2 style={{ fontSize: '1.2rem' }}>{profile.username}</h2>
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.2rem' }}>
+              <span style={{ fontSize: '0.8rem', color: '#feca57' }}>🪙 {profile.pet_coins}</span>
+            </div>
+          </div>
+          <button className="btn-icon" onClick={() => {
+            localStorage.removeItem('tamabi_user_id');
+            setCurrentUser(null);
+            setProfile(null);
+            setPets([]);
+          }}>
+            <LogOut size={20} color="#ff6b6b" />
+          </button>
+        </header>
+
+        <main className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🥚</div>
+          <h2>ยังไม่มีมอนสเตอร์</h2>
+          <p style={{ marginTop: '0.5rem', marginBottom: '2rem', opacity: 0.8 }}>ไปสุ่มกาชา หรือสแกน QR Code เพื่อรับมอนสเตอร์ตัวแรกกันเลย!</p>
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <button className="btn" onClick={() => setCurrentScreen('shop')}>🎁 สุ่มกาชา (500 🪙)</button>
+            <button className="btn" style={{ background: 'linear-gradient(135deg, #1dd1a1, #0fb9b1)' }} onClick={() => setCurrentScreen('scanner')}>📷 สแกน QR (ฟรี)</button>
+          </div>
+        </main>
       </div>
     );
   }
