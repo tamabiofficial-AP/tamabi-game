@@ -46,7 +46,7 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
   const [targetablePets, setTargetablePets] = useState<Set<string>>(new Set());
   const [logs, setLogs] = useState<BattleLog[]>([]);
   const [damagePopups, setDamagePopups] = useState<DamagePopup[]>([]);
-  const [timer, setTimer] = useState(20); // Increased from 15 to 20
+  const [isAuto, setIsAuto] = useState(false);
   const [turnNumber, setTurnNumber] = useState(1);
   const logRef = useRef<HTMLDivElement>(null);
 
@@ -157,17 +157,16 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
   const activeUnit = units.find(u => u.id === activeUnitId);
   const isPlayerTurn = activeUnit?.team === 'player';
 
-  // --- 15s Timer (Player turns only) ---
+  // --- Auto Battle Logic ---
   useEffect(() => {
     if (!isPlayerTurn || phase === 'animating' || phase === 'victory' || phase === 'defeat') return;
-    if (timer <= 0) {
-      addLog(`⏰ ${activeUnit.name} หมดเวลา! Auto-attack!`, 'info');
-      handleAutoAttack();
-      return;
+    if (isAuto) {
+      const delay = setTimeout(() => {
+        handleAutoAttack();
+      }, 1000);
+      return () => clearTimeout(delay);
     }
-    const interval = setInterval(() => setTimer(t => t - 1), 1000);
-    return () => clearInterval(interval);
-  }, [timer, isPlayerTurn, phase]);
+  }, [isAuto, isPlayerTurn, phase]);
 
   // --- Centralized Win/Lose Check ---
   useEffect(() => {
@@ -250,7 +249,7 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
     }
 
     setCurrentTurnIdx(nextIdx);
-    setTimer(20); // Reset timer to 20
+
     setSelectedSkill(null);
     setHighlightedCells(new Set());
     setTargetablePets(new Set());
@@ -519,11 +518,18 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
             }
           </span>
         </div>
-        {/* Timer */}
-        <div className="timer-container" style={{ width: '45px', height: '45px' }}>
-          <span className={`timer-text ${timer <= 5 ? 'danger' : ''}`} style={{ fontSize: '1.3rem' }}>
-            {isPlayerTurn ? timer : '—'}
-          </span>
+        {/* Auto Button */}
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <button 
+            onClick={() => setIsAuto(!isAuto)}
+            style={{ 
+              background: isAuto ? 'var(--primary-color)' : 'rgba(255,255,255,0.1)',
+              color: 'white', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '12px',
+              fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s'
+            }}
+          >
+            {isAuto ? '▶ AUTO ON' : '⏸ AUTO OFF'}
+          </button>
         </div>
       </header>
 

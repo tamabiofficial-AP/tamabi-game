@@ -238,18 +238,28 @@ export function tickCooldowns(unit: PetUnit): PetUnit {
 // --- Mock Data Generators ---
 export function makeSkills(element: string, isRanged: boolean = false): Skill[] {
   const elementEmoji: Record<string, string> = {
-    fire: '🔥', water: '💧', earth: '🪨', nature: '🍃', light: '✨', dark: '🌑',
+    fire: '🔥', water: '💧', earth: '🪨', nature: '🍃', wind: '🌪️', light: '✨', dark: '🌑',
   };
   const em = elementEmoji[element] || '⚡';
   const baseRange = isRanged ? 2 : 1;
   
-  return [
-    { id: 's1', name: 'Basic Attack', icon: '⚔️', type: 'basic', damage: 100, range: baseRange, aoe: 0, cooldown: 0, description: `โจมตีธรรมดา ระยะ ${baseRange} ช่อง` },
-    { id: 's2', name: 'Guard', icon: '🛡️', type: 'passive', damage: 0, range: 0, aoe: 0, cooldown: 0, description: 'ป้องกัน DEF +50% เทิร์นนี้' },
-    { id: 's3', name: 'Heal', icon: '💚', type: 'utility', heal: 30, range: 2, aoe: 0, cooldown: 3, description: 'ฮีลเพื่อนร่วมทีม 30% ของ Max HP' },
-    { id: 's4', name: `${em} Strike`, icon: em, type: 'attack', damage: 150, range: 2, aoe: 0, cooldown: 2, description: `โจมตีธาตุ ${element} ระยะ 2 ช่อง` },
-    { id: 's5', name: `${em} Ultimate`, icon: '💥', type: 'ultimate', damage: 250, range: 2, aoe: 1, cooldown: 5, description: `ท่าไม้ตาย! AoE ธาตุ ${element}` },
+  const skills: Skill[] = [
+    { id: 's1', name: 'Basic Attack', icon: '⚔️', type: 'basic', damage: 100, range: baseRange, aoe: 0, cooldown: 0, description: `โจมตีปกติ ระยะ ${baseRange} ช่อง` }
   ];
+
+  // Ultimate Skill based on element
+  if (element === 'light' || element === 'water') {
+    // Supportive / Defensive Ultimate
+    skills.push({ id: 's2', name: `${em} Healing Wave`, icon: em, type: 'ultimate', heal: 40, range: 2, aoe: 1, cooldown: 3, description: `ฮีลเพื่อนร่วมทีม 40% ของ Max HP (ติดคูลดาวน์ 3 เทิร์น)` });
+  } else if (element === 'dark' || element === 'fire') {
+    // High Damage Ultimate
+    skills.push({ id: 's2', name: `${em} Destructive Burst`, icon: em, type: 'ultimate', damage: 200, range: 2, aoe: 0, cooldown: 3, description: `โจมตีธาตุเป้าหมายเดี่ยวอย่างรุนแรง 200% (ติดคูลดาวน์ 3 เทิร์น)` });
+  } else {
+    // AoE Damage Ultimate
+    skills.push({ id: 's2', name: `${em} Elemental Storm`, icon: em, type: 'ultimate', damage: 130, range: 2, aoe: 1, cooldown: 3, description: `โจมตีธาตุหมู่ 130% (ติดคูลดาวน์ 3 เทิร์น)` });
+  }
+
+  return skills;
 }
 
 export function createMockUnits(): PetUnit[] {
