@@ -278,7 +278,7 @@ export default function App() {
       </header>
 
       {/* Main Pet Display Area */}
-      <main className="glass-panel" style={{ minHeight: '220px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+      <main className="glass-panel" style={{ minHeight: '380px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
         <div style={{ 
           position: 'absolute', width: '200px', height: '200px', 
           background: 'radial-gradient(circle, rgba(255, 107, 107, 0.2) 0%, rgba(0,0,0,0) 70%)',
