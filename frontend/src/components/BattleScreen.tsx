@@ -259,12 +259,19 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
           }
         }
         
-        return finalU.isDead ? finalU : tickCooldowns(finalU);
+        return finalU;
       });
 
       const newOrder = getTurnOrder(updatedUnits).map(u => u.id);
       setTurnOrderIds(newOrder);
       setUnits(updatedUnits);
+      // Wait for next cycle to update order
+      setTimeout(() => {
+        setUnits(prev => prev.map(u => u.id === newOrder[0] && !u.isDead ? tickCooldowns(u) : u));
+      }, 0);
+    } else {
+      const nextUnitId = turnOrderIds[nextIdx];
+      setUnits(prev => prev.map(u => u.id === nextUnitId && !u.isDead ? tickCooldowns(u) : u));
     }
 
     setCurrentTurnIdx(nextIdx);
