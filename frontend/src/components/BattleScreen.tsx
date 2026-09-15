@@ -337,6 +337,11 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
       });
     });
 
+    // Apply Status Effects (if any)
+    if (skill.applyStatus) {
+      updatedUnits = applySkillStatus(skill, attacker, mainTarget, updatedUnits);
+    }
+
     // Apply cooldown to attacker
     updatedUnits = updatedUnits.map(u => {
       if (u.id === attacker.id) {
