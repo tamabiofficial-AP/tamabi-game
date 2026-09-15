@@ -8,7 +8,7 @@ import {
   getReachableCells, getTargetableCells,
   calculateDamage, calculateHeal,
   enemyDecide, checkBattleEnd, hexDistance,
-  getElementBonus, makeSkills,
+  getElementBonus, makeSkills, applySkillStatus
 } from '../engine/battleEngine';
 import { processBattleResult } from '../engine/rewardSystem';
 import type { BattleReward } from '../engine/rewardSystem';
@@ -239,13 +239,32 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
       nextIdx = 0;
       setTurnNumber(t => t + 1);
 
-      // Recalculate turn order with updated units and tick cooldowns
-      setUnits(prev => {
-        const updated = prev.map(u => u.isDead ? u : tickCooldowns(u));
-        const newOrder = getTurnOrder(updated).map(u => u.id);
-        setTurnOrderIds(newOrder);
-        return updated;
+      let updatedUnits = [...unitsRef.current];
+
+      // Process End of Round Effects (Poison) and tick cooldowns
+      updatedUnits = updatedUnits.map(u => {
+        if (u.isDead) return u;
+        let finalU = { ...u };
+        
+        // Take poison damage
+        const poisonEffect = finalU.statusEffects.find(e => e.type === 'poison');
+        if (poisonEffect && poisonEffect.damagePerTurn) {
+          const dmg = poisonEffect.damagePerTurn;
+          finalU.hp = Math.max(0, finalU.hp - dmg);
+          addLog(`☠️ ${finalU.emoji} ${finalU.name} โดนพิษลด ${dmg} HP!`, 'damage');
+          addPopup(finalU.row, finalU.col, dmg, 'damage');
+          if (finalU.hp <= 0) {
+            finalU.isDead = true;
+            addLog(`💀 ${finalU.emoji} ${finalU.name} สิ้นใจเพราะพิษ!`, 'death');
+          }
+        }
+        
+        return finalU.isDead ? finalU : tickCooldowns(finalU);
       });
+
+      const newOrder = getTurnOrder(updatedUnits).map(u => u.id);
+      setTurnOrderIds(newOrder);
+      setUnits(updatedUnits);
     }
 
     setCurrentTurnIdx(nextIdx);
@@ -319,6 +338,9 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
       return u;
     });
 
+    // Apply Status Effects
+    updatedUnits = applySkillStatus(skill, attacker, mainTarget, updatedUnits);
+
     setUnits(updatedUnits);
   }
 
@@ -338,6 +360,24 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
     });
 
     updatedUnits = updatedUnits.map(u => u.id === healer.id ? { ...u, cooldowns: { ...u.cooldowns, [skill.id]: skill.cooldown }, hasActed: true } : u);
+
+    // Apply Status Effects
+    updatedUnits = applySkillStatus(skill, healer, mainTarget, updatedUnits);
+
+    setUnits(updatedUnits);
+  }
+
+  // --- Execute Utility ---
+  function executeUtility(caster: PetUnit, mainTarget: PetUnit, skill: Skill) {
+    let updatedUnits = [...units];
+    addLog(`${caster.emoji} ${caster.name} ใช้ ${skill.icon} ${skill.name}!`, 'info');
+
+    // Put skill on cooldown
+    updatedUnits = updatedUnits.map(u => u.id === caster.id ? { ...u, cooldowns: { ...u.cooldowns, [skill.id]: skill.cooldown }, hasActed: true } : u);
+
+    // Apply Status Effects
+    updatedUnits = applySkillStatus(skill, caster, mainTarget, updatedUnits);
+
     setUnits(updatedUnits);
   }
 
@@ -394,6 +434,8 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
       if (targetUnit && targetablePets.has(targetUnit.id)) {
         if (selectedSkill.heal) {
           executeHeal(activeUnit, targetUnit, selectedSkill);
+        } else if (selectedSkill.type === 'utility' && !selectedSkill.damage) {
+          executeUtility(activeUnit, targetUnit, selectedSkill);
         } else {
           executeAttack(activeUnit, targetUnit, selectedSkill);
         }
@@ -568,12 +610,25 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
                   <div className="hex-cell-bg" />
                   {unit && (
                     <>
+                      {/* Status Effects */}
+                      {unit.statusEffects.length > 0 && (
+                        <div style={{ position: 'absolute', top: '-12px', left: 0, width: '100%', display: 'flex', justifyContent: 'center', gap: '2px', zIndex: 5, pointerEvents: 'none' }}>
+                          {unit.statusEffects.map((se, idx) => (
+                            <span key={idx} style={{ fontSize: '0.65rem', background: 'rgba(0,0,0,0.6)', borderRadius: '4px', padding: '1px 3px', color: se.type === 'poison' ? '#b33939' : '#1dd1a1' }}>
+                              {se.type === 'poison' ? '☠️' : se.statModifier?.atk ? '⚔️' : se.statModifier?.def ? '🛡️' : '💨'}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       <span className="pet-token">{unit.emoji}</span>
-                      <div className="hp-bar-mini">
+                      <div className="hp-bar-mini" style={{ position: 'relative' }}>
                         <div
                           className={`hp-bar-fill ${(unit.hp / unit.maxHp) < 0.3 ? 'danger' : ''}`}
                           style={{ width: `${(unit.hp / unit.maxHp) * 100}%` }}
                         />
+                        <span style={{ position: 'absolute', left: 0, width: '100%', textAlign: 'center', fontSize: '0.4rem', top: 0, color: 'white', textShadow: '1px 1px 1px black', fontWeight: 'bold' }}>
+                          {unit.hp}/{unit.maxHp}
+                        </span>
                       </div>
                     </>
                   )}

@@ -35,12 +35,20 @@ export interface Skill {
   aoe: number;           // 0 = single target, 1+ = area
   cooldown: number;      // Turns before reuse (0 = no cooldown)
   description: string;
+  applyStatus?: Omit<StatusEffect, 'turnsRemaining'> & { duration: number; target: 'self' | 'enemy' | 'ally' };
 }
 
 export interface StatusEffect {
+  id: string;
   name: string;
   turnsRemaining: number;
-  type: 'buff' | 'debuff';
+  type: 'buff' | 'debuff' | 'poison';
+  statModifier?: {
+    atk?: number;
+    def?: number;
+    spd?: number;
+  };
+  damagePerTurn?: number; // For poison
 }
 
 export type Phase = 'select_pet' | 'select_action' | 'select_move' | 'select_target' | 'animating' | 'enemy_turn' | 'victory' | 'defeat';
@@ -134,18 +142,67 @@ export function getTargetableCells(
   });
 }
 
+// --- Apply Status Effects from Skill ---
+export function applySkillStatus(
+  skill: Skill,
+  caster: PetUnit,
+  mainTarget: PetUnit,
+  allUnits: PetUnit[]
+): PetUnit[] {
+  if (!skill.applyStatus) return allUnits;
+  
+  const status = skill.applyStatus;
+  const newEffect: StatusEffect = {
+    id: status.id,
+    name: status.name,
+    type: status.type,
+    turnsRemaining: status.duration,
+    statModifier: status.statModifier,
+    damagePerTurn: status.damagePerTurn
+  };
+
+  return allUnits.map(u => {
+    let shouldApply = false;
+    if (status.target === 'self' && u.id === caster.id) shouldApply = true;
+    else if (status.target === 'enemy' && u.id === mainTarget.id) shouldApply = true;
+    else if (status.target === 'ally' && u.team === caster.team && !u.isDead) shouldApply = true;
+
+    if (shouldApply) {
+      // Remove existing status with same id if any, then add new one
+      const filtered = u.statusEffects.filter(e => e.id !== status.id);
+      return { ...u, statusEffects: [...filtered, newEffect] };
+    }
+    return u;
+  });
+}
+
+// --- Get Effective Stat ---
+export function getEffectiveStat(unit: PetUnit, stat: 'atk' | 'def' | 'spd'): number {
+  let multiplier = 1;
+  for (const effect of unit.statusEffects) {
+    if (effect.statModifier && effect.statModifier[stat]) {
+      multiplier *= effect.statModifier[stat]!;
+    }
+  }
+  return unit[stat] * multiplier;
+}
+
 // --- Calculate Damage ---
 export function calculateDamage(
   attacker: PetUnit,
   defender: PetUnit,
   skill: Skill
 ): { damage: number; isCritical: boolean; elementBonus: number } {
-  const baseDmg = attacker.atk * ((skill.damage || 100) / 100);
-  const defense = Math.max(1, defender.def * 0.5);
+  const effAtk = getEffectiveStat(attacker, 'atk');
+  const effDef = getEffectiveStat(defender, 'def');
+  const baseDmg = effAtk * ((skill.damage || 100) / 100);
+  const defense = Math.max(1, effDef * 0.5);
   const elementBonus = getElementBonus(attacker.element, defender.element);
   const isCritical = Math.random() < 0.15; // 15% crit chance
   const critMultiplier = isCritical ? 1.5 : 1;
   const randomFactor = 0.9 + Math.random() * 0.2; // ±10% variance
+
+  if (skill.damage === 0) return { damage: 0, isCritical: false, elementBonus: 1 };
 
   const rawDamage = Math.round((baseDmg - defense) * elementBonus * critMultiplier * randomFactor);
   return {
@@ -165,7 +222,7 @@ export function calculateHeal(healer: PetUnit, target: PetUnit, skill: Skill): n
 export function getTurnOrder(units: PetUnit[]): PetUnit[] {
   return [...units]
     .filter(u => !u.isDead)
-    .sort((a, b) => b.spd - a.spd); // Fastest first
+    .sort((a, b) => getEffectiveStat(b, 'spd') - getEffectiveStat(a, 'spd')); // Fastest first
 }
 
 // --- Simple Enemy AI ---
@@ -232,7 +289,13 @@ export function tickCooldowns(unit: PetUnit): PetUnit {
   for (const [skillId, cd] of Object.entries(unit.cooldowns)) {
     newCooldowns[skillId] = Math.max(0, cd - 1);
   }
-  return { ...unit, cooldowns: newCooldowns, hasMoved: false, hasActed: false };
+
+  // Tick status effects
+  const newStatusEffects = unit.statusEffects
+    .map(effect => ({ ...effect, turnsRemaining: effect.turnsRemaining - 1 }))
+    .filter(effect => effect.turnsRemaining > 0);
+
+  return { ...unit, cooldowns: newCooldowns, statusEffects: newStatusEffects, hasMoved: false, hasActed: false };
 }
 
 // --- Mock Data Generators ---
@@ -247,16 +310,28 @@ export function makeSkills(element: string, isRanged: boolean = false): Skill[] 
     { id: 's1', name: 'Basic Attack', icon: '⚔️', type: 'basic', damage: 100, range: baseRange, aoe: 0, cooldown: 0, description: `โจมตีปกติ ระยะ ${baseRange} ช่อง` }
   ];
 
-  // Ultimate Skill based on element
+  // Utility Skill (Skill 2)
+  if (element === 'fire') {
+    skills.push({ id: 's2', name: `Ignite`, icon: '🔥', type: 'utility', damage: 0, range: 0, aoe: 0, cooldown: 2, description: `บัฟ ATK ให้ตัวเอง (CD: 2)`, applyStatus: { id: 'atk_up', name: 'ATK+', type: 'buff', statModifier: { atk: 1.3 }, duration: 2, target: 'self' } });
+  } else if (element === 'water') {
+    skills.push({ id: 's2', name: `Aqua Shield`, icon: '💧', type: 'utility', damage: 0, range: 0, aoe: 0, cooldown: 2, description: `บัฟ DEF ให้ตัวเอง (CD: 2)`, applyStatus: { id: 'def_up', name: 'DEF+', type: 'buff', statModifier: { def: 1.5 }, duration: 2, target: 'self' } });
+  } else if (element === 'earth') {
+    skills.push({ id: 's2', name: `Stone Wall`, icon: '🪨', type: 'utility', damage: 0, range: 0, aoe: 0, cooldown: 2, description: `เพิ่มเกราะป้องกันมหาศาล (CD: 2)`, applyStatus: { id: 'def_up_max', name: 'DEF++', type: 'buff', statModifier: { def: 2.0 }, duration: 1, target: 'self' } });
+  } else if (element === 'wind' || element === 'nature') {
+    skills.push({ id: 's2', name: `Tailwind`, icon: '🌪️', type: 'utility', damage: 0, range: 0, aoe: 0, cooldown: 2, description: `บัฟความเร็วให้ตัวเอง (CD: 2)`, applyStatus: { id: 'spd_up', name: 'SPD+', type: 'buff', statModifier: { spd: 1.5 }, duration: 2, target: 'self' } });
+  } else if (element === 'light') {
+    skills.push({ id: 's2', name: `Purify`, icon: '✨', type: 'utility', heal: 20, range: 2, aoe: 0, cooldown: 2, description: `ฮีลเดี่ยว 20% + เพิ่ม SPD (CD: 2)`, applyStatus: { id: 'spd_up', name: 'SPD+', type: 'buff', statModifier: { spd: 1.3 }, duration: 2, target: 'ally' } });
+  } else if (element === 'dark') {
+    skills.push({ id: 's2', name: `Poison Strike`, icon: '☠️', type: 'utility', damage: 20, range: 2, aoe: 0, cooldown: 2, description: `โจมตีและติดพิษศัตรู (CD: 2)`, applyStatus: { id: 'poison', name: 'Poison', type: 'poison', damagePerTurn: 40, duration: 3, target: 'enemy' } });
+  }
+
+  // Ultimate Skill (Skill 3)
   if (element === 'light' || element === 'water') {
-    // Supportive / Defensive Ultimate
-    skills.push({ id: 's2', name: `${em} Healing Wave`, icon: em, type: 'ultimate', heal: 40, range: 2, aoe: 1, cooldown: 3, description: `ฮีลเพื่อน 40% (ระยะ: 2 ช่อง) (CD: 3)` });
+    skills.push({ id: 's3', name: `${em} Healing Wave`, icon: em, type: 'ultimate', heal: 40, range: 2, aoe: 1, cooldown: 3, description: `ฮีลเพื่อน 40% (ระยะ: 2 ช่อง) (CD: 3)` });
   } else if (element === 'dark' || element === 'fire') {
-    // High Damage Ultimate
-    skills.push({ id: 's2', name: `${em} Destructive Burst`, icon: em, type: 'ultimate', damage: 200, range: 2, aoe: 0, cooldown: 3, description: `ดาเมจ 200% (ระยะ: 2 ช่อง) (CD: 3)` });
+    skills.push({ id: 's3', name: `${em} Destructive Burst`, icon: em, type: 'ultimate', damage: 200, range: 2, aoe: 0, cooldown: 3, description: `ดาเมจ 200% (ระยะ: 2 ช่อง) (CD: 3)` });
   } else {
-    // AoE Damage Ultimate
-    skills.push({ id: 's2', name: `${em} Elemental Storm`, icon: em, type: 'ultimate', damage: 130, range: 2, aoe: 1, cooldown: 3, description: `ดาเมจหมู่ 130% (ระยะ: 2 ช่อง) (CD: 3)` });
+    skills.push({ id: 's3', name: `${em} Elemental Storm`, icon: em, type: 'ultimate', damage: 130, range: 2, aoe: 1, cooldown: 3, description: `ดาเมจหมู่ 130% (ระยะ: 2 ช่อง) (CD: 3)` });
   }
 
   return skills;
