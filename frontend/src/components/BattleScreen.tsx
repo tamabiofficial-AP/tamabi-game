@@ -484,18 +484,6 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
       return;
     }
 
-    // Auto-cast if it's a self-only skill
-    if (targets.length === 1 && targets[0].id === activeUnit.id) {
-      if (skill.heal) executeHeal(activeUnit, targets[0], skill);
-      else if (skill.type === 'utility' && !skill.damage) executeUtility(activeUnit, targets[0], skill);
-      else executeAttack(activeUnit, targets[0], skill);
-      
-      setSelectedSkill(null);
-      setTargetablePets(new Set());
-      setTimeout(() => advanceTurn(), 600);
-      return;
-    }
-
     setSelectedSkill(skill);
     setTargetablePets(new Set(targets.map(t => t.id)));
     setHighlightedCells(new Set(targets.map(t => `${t.row},${t.col}`)));
@@ -639,6 +627,17 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
                           ))}
                         </div>
                       )}
+                      {/* Element Icon */}
+                      <span style={{ position: 'absolute', top: '2px', right: '4px', fontSize: '0.65rem', zIndex: 3, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))' }}>
+                        {
+                          unit.element === 'fire' ? '🔥' :
+                          unit.element === 'water' ? '💧' :
+                          unit.element === 'earth' ? '🪨' :
+                          unit.element === 'nature' ? '🍃' :
+                          unit.element === 'light' ? '✨' :
+                          unit.element === 'dark' ? '🌑' : '⚡'
+                        }
+                      </span>
                       <span className="pet-token">{unit.emoji}</span>
                       <div className="hp-bar-mini" style={{ position: 'relative' }}>
                         <div
@@ -745,6 +744,20 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
                 );
               })}
             </div>
+            
+            {/* Skill Details Panel */}
+            {selectedSkill && (
+              <div style={{ marginTop: '0.8rem', padding: '0.6rem', background: 'rgba(0,0,0,0.4)', borderRadius: '8px', textAlign: 'center', animation: 'fadeIn 0.2s' }}>
+                <div style={{ fontWeight: 'bold', color: 'var(--accent-color)', fontSize: '0.85rem', marginBottom: '0.2rem' }}>
+                  {selectedSkill.icon} {selectedSkill.name}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'white' }}>
+                  {selectedSkill.description}
+                </div>
+                {selectedSkill.damage ? <div style={{ fontSize: '0.7rem', color: '#ff6b6b', marginTop: '0.2rem' }}>ดาเมจ: {selectedSkill.damage}%</div> : null}
+                {selectedSkill.heal ? <div style={{ fontSize: '0.7rem', color: '#1dd1a1', marginTop: '0.2rem' }}>ฟื้นฟู: {selectedSkill.heal}%</div> : null}
+              </div>
+            )}
           </div>
         );
       })()}
