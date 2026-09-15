@@ -477,6 +477,18 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
       return;
     }
 
+    // Auto-cast if it's a self-only skill
+    if (targets.length === 1 && targets[0].id === activeUnit.id) {
+      if (skill.heal) executeHeal(activeUnit, targets[0], skill);
+      else if (skill.type === 'utility' && !skill.damage) executeUtility(activeUnit, targets[0], skill);
+      else executeAttack(activeUnit, targets[0], skill);
+      
+      setSelectedSkill(null);
+      setTargetablePets(new Set());
+      setTimeout(() => advanceTurn(), 600);
+      return;
+    }
+
     setSelectedSkill(skill);
     setTargetablePets(new Set(targets.map(t => t.id)));
     setHighlightedCells(new Set(targets.map(t => `${t.row},${t.col}`)));
@@ -626,7 +638,7 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
                           className={`hp-bar-fill ${(unit.hp / unit.maxHp) < 0.3 ? 'danger' : ''}`}
                           style={{ width: `${(unit.hp / unit.maxHp) * 100}%` }}
                         />
-                        <span style={{ position: 'absolute', left: 0, width: '100%', textAlign: 'center', fontSize: '0.4rem', top: 0, color: 'white', textShadow: '1px 1px 1px black', fontWeight: 'bold' }}>
+                        <span style={{ position: 'absolute', left: '-50%', width: '200%', textAlign: 'center', fontSize: '0.65rem', top: '4px', color: 'white', textShadow: '1px 1px 2px black, 0 0 4px rgba(0,0,0,0.8)', fontWeight: 'bold' }}>
                           {unit.hp}/{unit.maxHp}
                         </span>
                       </div>
