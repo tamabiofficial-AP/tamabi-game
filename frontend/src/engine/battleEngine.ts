@@ -132,11 +132,16 @@ export function getTargetableCells(
     const dist = hexDistance(unit.row, unit.col, target.row, target.col);
     if (dist > skill.range) return false;
 
-    if (skill.type === 'utility' || skill.heal) {
-      // Heal/utility targets allies
-      return target.team === unit.team && target.id !== unit.id;
+    if (skill.applyStatus) {
+      const targetType = skill.applyStatus.target;
+      if (targetType === 'self') return target.id === unit.id;
+      if (targetType === 'enemy') return target.team !== unit.team;
+      if (targetType === 'ally') return target.team === unit.team;
+    }
+
+    if (skill.heal) {
+      return target.team === unit.team;
     } else {
-      // Attack targets enemies
       return target.team !== unit.team;
     }
   });
@@ -165,7 +170,7 @@ export function applySkillStatus(
     let shouldApply = false;
     if (status.target === 'self' && u.id === caster.id) shouldApply = true;
     else if (status.target === 'enemy' && u.id === mainTarget.id) shouldApply = true;
-    else if (status.target === 'ally' && u.team === caster.team && !u.isDead) shouldApply = true;
+    else if (status.target === 'ally' && u.id === mainTarget.id) shouldApply = true;
 
     if (shouldApply) {
       // Remove existing status with same id if any, then add new one
