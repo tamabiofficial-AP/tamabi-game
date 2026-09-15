@@ -37,6 +37,7 @@ interface BattleScreenProps {
 
 export default function BattleScreen({ playerId, activePetIds, onBack }: BattleScreenProps) {
   const [units, setUnits] = useState<PetUnit[]>([]);
+  useEffect(() => { console.log("[DEBUG] Units updated:", units); }, [units]);
   const [isLoading, setIsLoading] = useState(true);
   const [turnOrderIds, setTurnOrderIds] = useState<string[]>([]);
   const [currentTurnIdx, setCurrentTurnIdx] = useState(0);
@@ -637,19 +638,24 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
                     <>
                       {/* Status Effects */}
                       {unit.statusEffects.length > 0 && (
-                        <div style={{ position: 'absolute', top: '-16px', left: '-10%', width: '120%', display: 'flex', justifyContent: 'center', gap: '3px', zIndex: 10, pointerEvents: 'none' }}>
+                        <div style={{ position: 'absolute', top: '-25px', left: '-20%', width: '140%', display: 'flex', justifyContent: 'center', gap: '4px', zIndex: 999, pointerEvents: 'none' }}>
                           {unit.statusEffects.map((se, idx) => (
-                            <span key={idx} style={{ 
+                            <div key={idx} style={{ 
+                              display: 'flex', alignItems: 'center', gap: '2px',
                               fontSize: '0.85rem', 
-                              background: se.type === 'poison' ? 'rgba(180,0,0,0.7)' : 'rgba(29,209,161,0.5)', 
+                              background: se.type === 'poison' ? 'rgba(200,0,0,0.85)' : 'rgba(29,209,161,0.85)', 
                               borderRadius: '6px', 
-                              padding: '1px 4px', 
-                              border: `1px solid ${se.type === 'poison' ? '#ff4444' : '#1dd1a1'}`,
-                              animation: se.type === 'poison' ? 'target-pulse 1s infinite alternate' : 'none',
-                              lineHeight: 1,
+                              padding: '2px 6px', 
+                              border: `1px solid ${se.type === 'poison' ? '#ff6b6b' : '#1dd1a1'}`,
+                              animation: se.type === 'poison' ? 'poison-pulse 1s infinite alternate' : 'none',
+                              color: 'white',
+                              fontWeight: 'bold',
+                              textShadow: '0 1px 2px black',
+                              boxShadow: '0 2px 5px rgba(0,0,0,0.5)'
                             }}>
-                              {se.type === 'poison' ? '☠️' : se.statModifier?.atk ? '⚔️' : se.statModifier?.def ? '🛡️' : '💨'}
-                            </span>
+                              <span>{se.type === 'poison' ? '☠️' : se.statModifier?.atk ? '⚔️' : se.statModifier?.def ? '🛡️' : '💨'}</span>
+                              <span style={{ fontSize: '0.7rem' }}>{se.turnsRemaining}</span>
+                            </div>
                           ))}
                         </div>
                       )}
