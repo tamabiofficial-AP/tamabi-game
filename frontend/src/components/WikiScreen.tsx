@@ -3,6 +3,9 @@ import { ChevronLeft, Book, ShieldAlert } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
 import { SPECIES_EMOJI } from '../engine/petData';
+import { makeSkills } from '../engine/battleEngine';
+
+const SPECIES_RANGED = ['Eagle', 'Bat'];
 
 const ELEMENT_COLORS: Record<string, string> = {
   fire: '#ff6b6b', water: '#54a0ff', earth: '#c8a96e',
@@ -129,11 +132,26 @@ export default function WikiScreen({ playerPets, onBack }: WikiScreenProps) {
 
                 {/* Stats (Only if unlocked) */}
                 {isUnlocked ? (
-                  <div style={{ marginTop: '0.8rem', width: '100%', fontSize: '0.7rem', color: 'var(--text-muted)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.2rem' }}>
-                    <span>HP: {species.base_hp}</span>
-                    <span>ATK: {species.base_atk}</span>
-                    <span>DEF: {species.base_def}</span>
-                    <span>SPD: {species.base_spd}</span>
+                  <div style={{ marginTop: '0.8rem', width: '100%', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.2rem', marginBottom: '0.5rem' }}>
+                      <span>HP: {species.base_hp}</span>
+                      <span>ATK: {species.base_atk}</span>
+                      <span>DEF: {species.base_def}</span>
+                      <span>SPD: {species.base_spd}</span>
+                    </div>
+                    {/* Skills */}
+                    <div style={{ background: 'rgba(0,0,0,0.3)', padding: '0.5rem', borderRadius: '8px', textAlign: 'left' }}>
+                      <span style={{ color: 'var(--accent-color)', fontWeight: 'bold' }}>Skills:</span>
+                      {(() => {
+                        const skills = makeSkills(species.element, SPECIES_RANGED.includes(species.name));
+                        return skills.map(skill => (
+                          <div key={skill.id} style={{ marginTop: '0.3rem' }}>
+                            <strong style={{ color: 'white' }}>{skill.icon} {skill.name}</strong>
+                            <div style={{ fontSize: '0.65rem' }}>{skill.description}</div>
+                          </div>
+                        ));
+                      })()}
+                    </div>
                   </div>
                 ) : (
                   <div style={{ marginTop: '0.8rem', fontSize: '0.7rem', color: 'var(--text-muted)' }}>

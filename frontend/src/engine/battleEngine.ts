@@ -250,13 +250,13 @@ export function makeSkills(element: string, isRanged: boolean = false): Skill[] 
   // Ultimate Skill based on element
   if (element === 'light' || element === 'water') {
     // Supportive / Defensive Ultimate
-    skills.push({ id: 's2', name: `${em} Healing Wave`, icon: em, type: 'ultimate', heal: 40, range: 2, aoe: 1, cooldown: 3, description: `ฮีลเพื่อนร่วมทีม 40% ของ Max HP (ติดคูลดาวน์ 3 เทิร์น)` });
+    skills.push({ id: 's2', name: `${em} Healing Wave`, icon: em, type: 'ultimate', heal: 40, range: 2, aoe: 1, cooldown: 3, description: `ฮีลเพื่อน 40% (ระยะ: 2 ช่อง) (CD: 3)` });
   } else if (element === 'dark' || element === 'fire') {
     // High Damage Ultimate
-    skills.push({ id: 's2', name: `${em} Destructive Burst`, icon: em, type: 'ultimate', damage: 200, range: 2, aoe: 0, cooldown: 3, description: `โจมตีธาตุเป้าหมายเดี่ยวอย่างรุนแรง 200% (ติดคูลดาวน์ 3 เทิร์น)` });
+    skills.push({ id: 's2', name: `${em} Destructive Burst`, icon: em, type: 'ultimate', damage: 200, range: 2, aoe: 0, cooldown: 3, description: `ดาเมจ 200% (ระยะ: 2 ช่อง) (CD: 3)` });
   } else {
     // AoE Damage Ultimate
-    skills.push({ id: 's2', name: `${em} Elemental Storm`, icon: em, type: 'ultimate', damage: 130, range: 2, aoe: 1, cooldown: 3, description: `โจมตีธาตุหมู่ 130% (ติดคูลดาวน์ 3 เทิร์น)` });
+    skills.push({ id: 's2', name: `${em} Elemental Storm`, icon: em, type: 'ultimate', damage: 130, range: 2, aoe: 1, cooldown: 3, description: `ดาเมจหมู่ 130% (ระยะ: 2 ช่อง) (CD: 3)` });
   }
 
   return skills;
