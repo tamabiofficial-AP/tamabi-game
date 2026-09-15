@@ -10,7 +10,8 @@ import ShopScreen from './components/ShopScreen';
 import TeamSelectScreen from './components/TeamSelectScreen';
 import { ITEMS } from './engine/itemSystem';
 
-import { SPECIES_EMOJI } from './engine/petData';
+import { SPECIES_EMOJI, TRAITS } from './engine/petData';
+import type { TraitName } from './engine/petData';
 
 // Stat Bar Component
 const StatBar = ({ label, value, colorVar, icon: Icon }: any) => (
@@ -238,6 +239,17 @@ export default function App() {
   const element = pet.species_base_stats?.element || 'Unknown';
   const emoji = SPECIES_EMOJI[speciesName] || '❓';
 
+  // Compute combat stats with trait bonus
+  const s = pet.species_base_stats || { base_hp: 0, base_atk: 0, base_def: 0, base_spd: 0 };
+  const traitDef = TRAITS[(pet.trait as TraitName) || 'Normal'] || TRAITS['Normal'];
+  const eff_hunger = Math.max(50, pet.hunger) / 100;
+  const eff_happiness = Math.max(50, pet.happiness) / 100;
+  const eff_health = Math.max(50, pet.health) / 100;
+  const combatHP = Math.round(s.base_hp * eff_hunger);
+  const combatATK = Math.round(s.base_atk * eff_happiness * traitDef.bonusAtk);
+  const combatDEF = Math.round(s.base_def * eff_hunger * traitDef.bonusDef);
+  const combatSPD = Math.round(s.base_spd * eff_health * traitDef.bonusSpd);
+
   // Filter inventory items based on current tab
   const availableItems = Object.keys(ITEMS).filter(itemId => ITEMS[itemId].type === inventoryFilter && profile.inventory && profile.inventory[itemId] > 0);
 
@@ -345,6 +357,42 @@ export default function App() {
           <button className="btn" style={{ flex: 1, padding: '0.6rem', fontSize: '0.9rem', justifyContent: 'center', background: 'linear-gradient(135deg, #2ecc71, #27ae60)' }} onClick={() => openInventory('medicine')}>
             <Activity size={18} /> Heal
           </button>
+        </div>
+      </section>
+
+      {/* Combat Stats (with Trait bonus) */}
+      <section className="glass-panel" style={{ padding: '1.2rem' }}>
+        <h3 style={{ marginBottom: '0.8rem', fontSize: '1rem' }}>⚔️ Combat Stats</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+          <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '0.5rem 0.8rem', textAlign: 'center' }}>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>❤️ HP</div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{combatHP}</div>
+          </div>
+          <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '0.5rem 0.8rem', textAlign: 'center' }}>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>⚔️ ATK</div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: traitDef.bonusAtk > 1 ? '#1dd1a1' : traitDef.bonusAtk < 1 ? '#ff6b6b' : 'inherit' }}>
+              {combatATK}
+              {traitDef.bonusAtk !== 1 && <span style={{ fontSize: '0.65rem', marginLeft: '4px' }}>({traitDef.bonusAtk > 1 ? '+' : ''}{Math.round((traitDef.bonusAtk - 1) * 100)}%)</span>}
+            </div>
+          </div>
+          <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '0.5rem 0.8rem', textAlign: 'center' }}>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>🛡️ DEF</div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: traitDef.bonusDef > 1 ? '#1dd1a1' : traitDef.bonusDef < 1 ? '#ff6b6b' : 'inherit' }}>
+              {combatDEF}
+              {traitDef.bonusDef !== 1 && <span style={{ fontSize: '0.65rem', marginLeft: '4px' }}>({traitDef.bonusDef > 1 ? '+' : ''}{Math.round((traitDef.bonusDef - 1) * 100)}%)</span>}
+            </div>
+          </div>
+          <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '0.5rem 0.8rem', textAlign: 'center' }}>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>💨 SPD</div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: traitDef.bonusSpd > 1 ? '#1dd1a1' : traitDef.bonusSpd < 1 ? '#ff6b6b' : 'inherit' }}>
+              {combatSPD}
+              {traitDef.bonusSpd !== 1 && <span style={{ fontSize: '0.65rem', marginLeft: '4px' }}>({traitDef.bonusSpd > 1 ? '+' : ''}{Math.round((traitDef.bonusSpd - 1) * 100)}%)</span>}
+            </div>
+          </div>
+        </div>
+        <div style={{ marginTop: '0.6rem', fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+          🧠 Trait: <strong style={{ color: 'var(--accent-color)' }}>{pet.trait || 'Normal'}</strong>
+          {traitDef.name !== 'Normal' && <span> — {traitDef.description}</span>}
         </div>
       </section>
 

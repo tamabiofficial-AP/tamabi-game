@@ -337,11 +337,6 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
       });
     });
 
-    // Apply Status Effects (if any)
-    if (skill.applyStatus) {
-      updatedUnits = applySkillStatus(skill, attacker, mainTarget, updatedUnits);
-    }
-
     // Apply cooldown to attacker
     updatedUnits = updatedUnits.map(u => {
       if (u.id === attacker.id) {
@@ -350,8 +345,18 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
       return u;
     });
 
-    // Apply Status Effects
-    updatedUnits = applySkillStatus(skill, attacker, mainTarget, updatedUnits);
+    // Apply Status Effects (if any)
+    if (skill.applyStatus) {
+      updatedUnits = applySkillStatus(skill, attacker, mainTarget, updatedUnits);
+      if (skill.applyStatus.type === 'poison') {
+        addLog(`☠️ ${mainTarget.emoji} ${mainTarget.name} ติดพิษ! (${skill.applyStatus.damagePerTurn} dmg/${skill.applyStatus.duration} เทิร์น)`, 'damage');
+      } else if (skill.applyStatus.type === 'buff') {
+        const targetName = skill.applyStatus.target === 'self' ? attacker.name : mainTarget.name;
+        addLog(`✨ ${targetName} ได้รับบัฟ ${skill.applyStatus.name}!`, 'info');
+      } else if (skill.applyStatus.type === 'debuff') {
+        addLog(`🔻 ${mainTarget.emoji} ${mainTarget.name} ถูกลดสถานะ ${skill.applyStatus.name}!`, 'info');
+      }
+    }
 
     setUnits(updatedUnits);
   }
@@ -389,6 +394,14 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
 
     // Apply Status Effects
     updatedUnits = applySkillStatus(skill, caster, mainTarget, updatedUnits);
+
+    // Log the status effect
+    if (skill.applyStatus) {
+      if (skill.applyStatus.type === 'buff') {
+        const targetName = skill.applyStatus.target === 'self' ? caster.name : mainTarget.name;
+        addLog(`✨ ${targetName} ได้รับบัฟ ${skill.applyStatus.name}!`, 'info');
+      }
+    }
 
     setUnits(updatedUnits);
   }
@@ -709,7 +722,7 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
 
         return (
           <div className="glass-panel" style={{ padding: '0.8rem', opacity: isPlayerTurn ? 1 : 0.7 }}>
-            {/* Move Button */}
+            {/* Move & End Turn Buttons */}
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', justifyContent: 'center' }}>
               <button
                 className={`skill-btn ${phase === 'select_move' ? 'selected' : ''}`}
@@ -719,6 +732,22 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
                 title="เดิน (1-2 ช่อง)"
               >
                 <Move size={16} /> Move
+              </button>
+              <button
+                className="skill-btn"
+                onClick={() => {
+                  if (!activeUnit || !isPlayerTurn) return;
+                  addLog(`${activeUnit.emoji} ${activeUnit.name} จบเทิร์น`, 'info');
+                  setSelectedSkill(null);
+                  setHighlightedCells(new Set());
+                  setTargetablePets(new Set());
+                  setTimeout(() => advanceTurn(), 300);
+                }}
+                disabled={!isPlayerTurn}
+                style={{ width: 'auto', padding: '0.4rem 1rem', opacity: !isPlayerTurn ? 0.4 : 1, fontSize: '0.8rem', gap: '0.3rem', background: 'rgba(255,107,107,0.2)', borderColor: 'rgba(255,107,107,0.4)' }}
+                title="จบเทิร์นโดยไม่ทำอะไร"
+              >
+                ⏭️ จบเทิร์น
               </button>
             </div>
 
