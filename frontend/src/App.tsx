@@ -73,7 +73,7 @@ export default function App() {
       // Fetch Pets
       const { data: petsData } = await supabase
         .from('pets')
-        .select(`*, species_base_stats(name, element)`)
+        .select(`*, species_base_stats(name, element, base_hp, base_atk, base_def, base_spd)`)
         .eq('owner_id', currentUser)
         .order('created_at', { ascending: true });
 
@@ -240,15 +240,15 @@ export default function App() {
   const emoji = SPECIES_EMOJI[speciesName] || '❓';
 
   // Compute combat stats with trait bonus
-  const s = pet.species_base_stats || { base_hp: 0, base_atk: 0, base_def: 0, base_spd: 0 };
+  const s = pet.species_base_stats || {};
   const traitDef = TRAITS[(pet.trait as TraitName) || 'Normal'] || TRAITS['Normal'];
-  const eff_hunger = Math.max(50, pet.hunger) / 100;
-  const eff_happiness = Math.max(50, pet.happiness) / 100;
-  const eff_health = Math.max(50, pet.health) / 100;
-  const combatHP = Math.round(s.base_hp * eff_hunger);
-  const combatATK = Math.round(s.base_atk * eff_happiness * traitDef.bonusAtk);
-  const combatDEF = Math.round(s.base_def * eff_hunger * traitDef.bonusDef);
-  const combatSPD = Math.round(s.base_spd * eff_health * traitDef.bonusSpd);
+  const eff_hunger = Math.max(50, pet.hunger || 50) / 100;
+  const eff_happiness = Math.max(50, pet.happiness || 50) / 100;
+  const eff_health = Math.max(50, pet.health || 50) / 100;
+  const combatHP = Math.round((s.base_hp || 0) * eff_hunger) || 0;
+  const combatATK = Math.round((s.base_atk || 0) * eff_happiness * traitDef.bonusAtk) || 0;
+  const combatDEF = Math.round((s.base_def || 0) * eff_hunger * traitDef.bonusDef) || 0;
+  const combatSPD = Math.round((s.base_spd || 0) * eff_health * traitDef.bonusSpd) || 0;
 
   // Filter inventory items based on current tab
   const availableItems = Object.keys(ITEMS).filter(itemId => ITEMS[itemId].type === inventoryFilter && profile.inventory && profile.inventory[itemId] > 0);
@@ -278,7 +278,7 @@ export default function App() {
       </header>
 
       {/* Main Pet Display Area */}
-      <main className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+      <main className="glass-panel" style={{ minHeight: '220px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
         <div style={{ 
           position: 'absolute', width: '200px', height: '200px', 
           background: 'radial-gradient(circle, rgba(255, 107, 107, 0.2) 0%, rgba(0,0,0,0) 70%)',
@@ -372,21 +372,24 @@ export default function App() {
             <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>⚔️ ATK</div>
             <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: traitDef.bonusAtk > 1 ? '#1dd1a1' : traitDef.bonusAtk < 1 ? '#ff6b6b' : 'inherit' }}>
               {combatATK}
-              {traitDef.bonusAtk !== 1 && <span style={{ fontSize: '0.65rem', marginLeft: '4px' }}>({traitDef.bonusAtk > 1 ? '+' : ''}{Math.round((traitDef.bonusAtk - 1) * 100)}%)</span>}
+              {traitDef.bonusAtk > 1 && <span style={{ fontSize: '0.65rem', marginLeft: '4px', color: '#1dd1a1' }}>(+{Math.round((traitDef.bonusAtk - 1) * 100)}%)</span>}
+              {traitDef.bonusAtk < 1 && <span style={{ fontSize: '0.65rem', marginLeft: '4px', color: '#ff6b6b' }}>({Math.round((traitDef.bonusAtk - 1) * 100)}%)</span>}
             </div>
           </div>
           <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '0.5rem 0.8rem', textAlign: 'center' }}>
             <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>🛡️ DEF</div>
             <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: traitDef.bonusDef > 1 ? '#1dd1a1' : traitDef.bonusDef < 1 ? '#ff6b6b' : 'inherit' }}>
               {combatDEF}
-              {traitDef.bonusDef !== 1 && <span style={{ fontSize: '0.65rem', marginLeft: '4px' }}>({traitDef.bonusDef > 1 ? '+' : ''}{Math.round((traitDef.bonusDef - 1) * 100)}%)</span>}
+              {traitDef.bonusDef > 1 && <span style={{ fontSize: '0.65rem', marginLeft: '4px', color: '#1dd1a1' }}>(+{Math.round((traitDef.bonusDef - 1) * 100)}%)</span>}
+              {traitDef.bonusDef < 1 && <span style={{ fontSize: '0.65rem', marginLeft: '4px', color: '#ff6b6b' }}>({Math.round((traitDef.bonusDef - 1) * 100)}%)</span>}
             </div>
           </div>
           <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '0.5rem 0.8rem', textAlign: 'center' }}>
             <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>💨 SPD</div>
             <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: traitDef.bonusSpd > 1 ? '#1dd1a1' : traitDef.bonusSpd < 1 ? '#ff6b6b' : 'inherit' }}>
               {combatSPD}
-              {traitDef.bonusSpd !== 1 && <span style={{ fontSize: '0.65rem', marginLeft: '4px' }}>({traitDef.bonusSpd > 1 ? '+' : ''}{Math.round((traitDef.bonusSpd - 1) * 100)}%)</span>}
+              {traitDef.bonusSpd > 1 && <span style={{ fontSize: '0.65rem', marginLeft: '4px', color: '#1dd1a1' }}>(+{Math.round((traitDef.bonusSpd - 1) * 100)}%)</span>}
+              {traitDef.bonusSpd < 1 && <span style={{ fontSize: '0.65rem', marginLeft: '4px', color: '#ff6b6b' }}>({Math.round((traitDef.bonusSpd - 1) * 100)}%)</span>}
             </div>
           </div>
         </div>

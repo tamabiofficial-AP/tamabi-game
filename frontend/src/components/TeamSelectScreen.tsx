@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { ChevronLeft, Play, ShieldAlert, CheckCircle2 } from 'lucide-react';
 
-import { SPECIES_EMOJI } from '../engine/petData';
+import { SPECIES_EMOJI, TRAITS } from '../engine/petData';
+import type { TraitName } from '../engine/petData';
 
 const ELEMENT_COLORS: Record<string, string> = {
   fire: '#ff6b6b', water: '#54a0ff', earth: '#c8a96e',
@@ -33,6 +34,21 @@ export default function TeamSelectScreen({ playerPets, onStartBattle, onBack }: 
     }
   };
 
+  function getComputedStats(pet: any) {
+    const s = pet.species_base_stats || {};
+    const traitDef = TRAITS[(pet.trait as TraitName) || 'Normal'] || TRAITS['Normal'];
+    const eff_hunger = Math.max(50, pet.hunger || 50) / 100;
+    const eff_happiness = Math.max(50, pet.happiness || 50) / 100;
+    const eff_health = Math.max(50, pet.health || 50) / 100;
+    return {
+      hp: Math.round((s.base_hp || 0) * eff_hunger) || 0,
+      atk: Math.round((s.base_atk || 0) * eff_happiness * traitDef.bonusAtk) || 0,
+      def: Math.round((s.base_def || 0) * eff_hunger * traitDef.bonusDef) || 0,
+      spd: Math.round((s.base_spd || 0) * eff_health * traitDef.bonusSpd) || 0,
+      trait: traitDef,
+    };
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '1rem', overflowY: 'auto', paddingBottom: '2rem' }}>
       {/* Header */}
@@ -60,9 +76,10 @@ export default function TeamSelectScreen({ playerPets, onStartBattle, onBack }: 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
         {playerPets.map((pet) => {
           const isSelected = selectedIds.includes(pet.id);
-          const color = ELEMENT_COLORS[pet.species_base_stats.element] || '#ccc';
-          const emoji = SPECIES_EMOJI[pet.species_base_stats.name] || '❓';
+          const color = ELEMENT_COLORS[pet.species_base_stats?.element] || '#ccc';
+          const emoji = SPECIES_EMOJI[pet.species_base_stats?.name] || '❓';
           const selectionIndex = selectedIds.indexOf(pet.id) + 1;
+          const stats = getComputedStats(pet);
 
           return (
             <div 
@@ -101,12 +118,12 @@ export default function TeamSelectScreen({ playerPets, onStartBattle, onBack }: 
                   padding: '2px 8px', 
                   borderRadius: '10px'
                 }}>
-                  {pet.species_base_stats.element}
+                  {pet.species_base_stats?.element}
                 </span>
                 <span style={{ 
                   fontSize: '0.7rem', 
-                  background: 'rgba(255,255,255,0.1)', 
-                  color: 'var(--text-main)',
+                  background: stats.trait.name !== 'Normal' ? 'rgba(29,209,161,0.15)' : 'rgba(255,255,255,0.1)', 
+                  color: stats.trait.name !== 'Normal' ? '#1dd1a1' : 'var(--text-main)',
                   padding: '2px 8px', 
                   borderRadius: '10px'
                 }}>
@@ -114,9 +131,17 @@ export default function TeamSelectScreen({ playerPets, onStartBattle, onBack }: 
                 </span>
               </div>
 
-              <div style={{ marginTop: '0.8rem', width: '100%', fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between' }}>
-                <span>HP: {pet.health}%</span>
-                <span>ATK: {pet.happiness}%</span>
+              <div style={{ marginTop: '0.8rem', width: '100%', fontSize: '0.7rem', color: 'var(--text-muted)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.2rem' }}>
+                <span>❤️ HP: {stats.hp}</span>
+                <span style={{ color: stats.trait.bonusAtk > 1 ? '#1dd1a1' : stats.trait.bonusAtk < 1 ? '#ff6b6b' : 'inherit' }}>
+                  ⚔️ ATK: {stats.atk}
+                </span>
+                <span style={{ color: stats.trait.bonusDef > 1 ? '#1dd1a1' : stats.trait.bonusDef < 1 ? '#ff6b6b' : 'inherit' }}>
+                  🛡️ DEF: {stats.def}
+                </span>
+                <span style={{ color: stats.trait.bonusSpd > 1 ? '#1dd1a1' : stats.trait.bonusSpd < 1 ? '#ff6b6b' : 'inherit' }}>
+                  💨 SPD: {stats.spd}
+                </span>
               </div>
             </div>
           );

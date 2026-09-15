@@ -637,9 +637,17 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
                     <>
                       {/* Status Effects */}
                       {unit.statusEffects.length > 0 && (
-                        <div style={{ position: 'absolute', top: '-12px', left: 0, width: '100%', display: 'flex', justifyContent: 'center', gap: '2px', zIndex: 5, pointerEvents: 'none' }}>
+                        <div style={{ position: 'absolute', top: '-16px', left: '-10%', width: '120%', display: 'flex', justifyContent: 'center', gap: '3px', zIndex: 10, pointerEvents: 'none' }}>
                           {unit.statusEffects.map((se, idx) => (
-                            <span key={idx} style={{ fontSize: '0.65rem', background: 'rgba(0,0,0,0.6)', borderRadius: '4px', padding: '1px 3px', color: se.type === 'poison' ? '#b33939' : '#1dd1a1' }}>
+                            <span key={idx} style={{ 
+                              fontSize: '0.85rem', 
+                              background: se.type === 'poison' ? 'rgba(180,0,0,0.7)' : 'rgba(29,209,161,0.5)', 
+                              borderRadius: '6px', 
+                              padding: '1px 4px', 
+                              border: `1px solid ${se.type === 'poison' ? '#ff4444' : '#1dd1a1'}`,
+                              animation: se.type === 'poison' ? 'target-pulse 1s infinite alternate' : 'none',
+                              lineHeight: 1,
+                            }}>
                               {se.type === 'poison' ? '☠️' : se.statModifier?.atk ? '⚔️' : se.statModifier?.def ? '🛡️' : '💨'}
                             </span>
                           ))}

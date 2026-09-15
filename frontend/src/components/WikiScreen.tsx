@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronLeft, Book, ShieldAlert } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
-import { SPECIES_EMOJI } from '../engine/petData';
+import { SPECIES_EMOJI, TRAITS } from '../engine/petData';
 import { makeSkills } from '../engine/battleEngine';
 
 const SPECIES_RANGED = ['Eagle', 'Bat'];
@@ -66,6 +66,36 @@ export default function WikiScreen({ playerPets, onBack }: WikiScreenProps) {
           <span>🍃 Nature {'>'} 🪨 Earth</span>
           <span>🪨 Earth {'>'} 💧 Water</span>
           <span style={{ gridColumn: 'span 2', textAlign: 'center', marginTop: '0.5rem', color: 'var(--stat-aura)' }}>☀️ Light ⚔️ 🌑 Dark (สู้กันเองแรงขึ้น 1.5x)</span>
+        </div>
+      </section>
+
+      {/* Trait Guide */}
+      <section className="glass-panel" style={{ padding: '1rem' }}>
+        <h3 style={{ marginBottom: '1rem', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          🧠 Trait Guide
+        </h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+          {Object.values(TRAITS).map(trait => (
+            <div key={trait.name} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '0.6rem 0.8rem' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '0.85rem', marginBottom: '0.3rem', color: trait.name === 'Normal' ? 'var(--text-muted)' : 'var(--accent-color)' }}>
+                {trait.name}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>
+                {trait.description}
+              </div>
+              <div style={{ display: 'flex', gap: '0.8rem', fontSize: '0.7rem' }}>
+                <span style={{ color: trait.bonusAtk > 1 ? '#1dd1a1' : trait.bonusAtk < 1 ? '#ff6b6b' : 'var(--text-muted)' }}>
+                  ⚔️ ATK {trait.bonusAtk > 1 ? '+' : ''}{Math.round((trait.bonusAtk - 1) * 100)}%
+                </span>
+                <span style={{ color: trait.bonusDef > 1 ? '#1dd1a1' : trait.bonusDef < 1 ? '#ff6b6b' : 'var(--text-muted)' }}>
+                  🛡️ DEF {trait.bonusDef > 1 ? '+' : ''}{Math.round((trait.bonusDef - 1) * 100)}%
+                </span>
+                <span style={{ color: trait.bonusSpd > 1 ? '#1dd1a1' : trait.bonusSpd < 1 ? '#ff6b6b' : 'var(--text-muted)' }}>
+                  💨 SPD {trait.bonusSpd > 1 ? '+' : ''}{Math.round((trait.bonusSpd - 1) * 100)}%
+                </span>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
