@@ -68,7 +68,7 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
       const { data, error } = await supabase
         .from('pets')
         .select(`
-          id, owner_id, name, trait, happiness, hunger, health, energy,
+          id, owner_id, name, trait, happiness, hunger, health, energy, bond,
           species_base_stats (
             name, element, base_hp, base_atk, base_def, base_spd
           )
@@ -92,15 +92,16 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
 
         const fetchedUnits: PetUnit[] = filteredData.map((pet: any) => {
           const s = pet.species_base_stats;
-          // Apply care stat multipliers
-          const eff_hunger = Math.max(50, pet.hunger) / 100;
-          const eff_happiness = Math.max(50, pet.happiness) / 100;
-          const eff_health = Math.max(50, pet.health) / 100;
+          
+          // Battle Readiness (Care = Power)
+          const readiness = ((pet.hunger || 0) + (pet.happiness || 0) + (pet.health || 0)) / 300; // 0.0 to 1.0
+          const eff_multiplier = Math.max(0.5, readiness); // Minimum 50%
 
           // Apply trait multipliers
           const traitDef = TRAITS[(pet.trait as TraitName) || 'Normal'] || TRAITS['Normal'];
 
           const isPlayer = pet.owner_id === playerId;
+          const bondValue = isPlayer ? (pet.bond || 0) : 100; // Enemies have max bond
           
           // Positioning: Player on left (col 0), Enemy on right (col 3)
           let row = 0, col = 0;
@@ -124,12 +125,12 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
             emoji: SPECIES_EMOJI[s.name] || '❓',
             element: s.element,
             team: isPlayer ? 'player' : 'enemy',
-            maxHp: Math.round(s.base_hp * eff_hunger),
-            hp: Math.round(s.base_hp * eff_hunger),
-            atk: Math.round(s.base_atk * eff_happiness * traitDef.bonusAtk),
-            def: Math.round(s.base_def * eff_hunger * traitDef.bonusDef),
-            spd: Math.round(s.base_spd * eff_health * traitDef.bonusSpd),
-            skills: makeSkills(s.element, SPECIES_RANGED.includes(s.name)),
+            maxHp: Math.round(s.base_hp * eff_multiplier),
+            hp: Math.round(s.base_hp * eff_multiplier),
+            atk: Math.round(s.base_atk * eff_multiplier * traitDef.bonusAtk),
+            def: Math.round(s.base_def * eff_multiplier * traitDef.bonusDef),
+            spd: Math.round(s.base_spd * eff_multiplier * traitDef.bonusSpd),
+            skills: makeSkills(s.element, SPECIES_RANGED.includes(s.name), bondValue),
             cooldowns: {},
             statusEffects: [],
             row, col,
@@ -769,17 +770,17 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
             <div className="skill-bar">
               {displayUnit?.skills.map(skill => {
                 const cd = displayUnit.cooldowns[skill.id] || 0;
-                const isDisabled = !isPlayerTurn || activeUnit?.hasActed || (cd > 0);
+                const isDisabled = !isPlayerTurn || activeUnit?.hasActed || (cd > 0) || skill.locked;
                 return (
                   <button
                     key={skill.id}
                     className={`skill-btn ${skill.type === 'ultimate' ? 'ultimate' : ''} ${selectedSkill?.id === skill.id ? 'selected' : ''}`}
                     onClick={() => !isDisabled && handleSelectSkill(skill)}
-                    title={`${skill.name} — ${skill.description}${cd > 0 ? ` (CD: ${cd})` : ''}`}
+                    title={skill.locked ? `🔒 ${skill.name} — ปลดล็อคที่ Bond ${skill.type === 'ultimate' ? 80 : 40}` : `${skill.name} — ${skill.description}${cd > 0 ? ` (CD: ${cd})` : ''}`}
                     style={{ opacity: isDisabled ? 0.35 : 1, position: 'relative' }}
                   >
-                    <span>{skill.icon}</span>
-                    {cd > 0 && (
+                    <span>{skill.locked ? '🔒' : skill.icon}</span>
+                    {cd > 0 && !skill.locked && (
                       <span style={{
                         position: 'absolute', top: '-5px', right: '-5px',
                         background: '#ff6b6b', color: 'white', borderRadius: '50%',

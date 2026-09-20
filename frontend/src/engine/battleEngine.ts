@@ -36,6 +36,7 @@ export interface Skill {
   cooldown: number;      // Turns before reuse (0 = no cooldown)
   description: string;
   applyStatus?: Omit<StatusEffect, 'turnsRemaining'> & { duration: number; target: 'self' | 'enemy' | 'ally' };
+  locked?: boolean;      // True if skill is locked due to low Bond
 }
 
 export interface StatusEffect {
@@ -304,7 +305,7 @@ export function tickCooldowns(unit: PetUnit): PetUnit {
 }
 
 // --- Mock Data Generators ---
-export function makeSkills(element: string, isRanged: boolean = false): Skill[] {
+export function makeSkills(element: string, isRanged: boolean = false, bond: number = 100): Skill[] {
   const elementEmoji: Record<string, string> = {
     fire: '🔥', water: '💧', earth: '🪨', nature: '🍃', wind: '🌪️', light: '✨', dark: '🌑',
   };
@@ -316,27 +317,39 @@ export function makeSkills(element: string, isRanged: boolean = false): Skill[] 
   ];
 
   // Utility Skill (Skill 2)
+  let skill2: Skill | null = null;
   if (element === 'fire') {
-    skills.push({ id: 's2', name: `Ignite`, icon: '🔥', type: 'utility', damage: 0, range: 0, aoe: 0, cooldown: 2, description: `บัฟ ATK ให้ตัวเอง (CD: 2)`, applyStatus: { id: 'atk_up', name: 'ATK+', type: 'buff', statModifier: { atk: 1.3 }, duration: 2, target: 'self' } });
+    skill2 = { id: 's2', name: `Ignite`, icon: '🔥', type: 'utility', damage: 0, range: 0, aoe: 0, cooldown: 2, description: `บัฟ ATK ให้ตัวเอง (CD: 2)`, applyStatus: { id: 'atk_up', name: 'ATK+', type: 'buff', statModifier: { atk: 1.3 }, duration: 2, target: 'self' } };
   } else if (element === 'water') {
-    skills.push({ id: 's2', name: `Aqua Shield`, icon: '💧', type: 'utility', damage: 0, range: 0, aoe: 0, cooldown: 2, description: `บัฟ DEF ให้ตัวเอง (CD: 2)`, applyStatus: { id: 'def_up', name: 'DEF+', type: 'buff', statModifier: { def: 1.5 }, duration: 2, target: 'self' } });
+    skill2 = { id: 's2', name: `Aqua Shield`, icon: '💧', type: 'utility', damage: 0, range: 0, aoe: 0, cooldown: 2, description: `บัฟ DEF ให้ตัวเอง (CD: 2)`, applyStatus: { id: 'def_up', name: 'DEF+', type: 'buff', statModifier: { def: 1.5 }, duration: 2, target: 'self' } };
   } else if (element === 'earth') {
-    skills.push({ id: 's2', name: `Stone Wall`, icon: '🪨', type: 'utility', damage: 0, range: 0, aoe: 0, cooldown: 2, description: `เพิ่มเกราะป้องกันมหาศาล (CD: 2)`, applyStatus: { id: 'def_up_max', name: 'DEF++', type: 'buff', statModifier: { def: 2.0 }, duration: 1, target: 'self' } });
+    skill2 = { id: 's2', name: `Stone Wall`, icon: '🪨', type: 'utility', damage: 0, range: 0, aoe: 0, cooldown: 2, description: `เพิ่มเกราะป้องกันมหาศาล (CD: 2)`, applyStatus: { id: 'def_up_max', name: 'DEF++', type: 'buff', statModifier: { def: 2.0 }, duration: 1, target: 'self' } };
   } else if (element === 'wind' || element === 'nature') {
-    skills.push({ id: 's2', name: `Tailwind`, icon: '🌪️', type: 'utility', damage: 0, range: 0, aoe: 0, cooldown: 2, description: `บัฟความเร็วให้ตัวเอง (CD: 2)`, applyStatus: { id: 'spd_up', name: 'SPD+', type: 'buff', statModifier: { spd: 1.5 }, duration: 2, target: 'self' } });
+    skill2 = { id: 's2', name: `Tailwind`, icon: '🌪️', type: 'utility', damage: 0, range: 0, aoe: 0, cooldown: 2, description: `บัฟความเร็วให้ตัวเอง (CD: 2)`, applyStatus: { id: 'spd_up', name: 'SPD+', type: 'buff', statModifier: { spd: 1.5 }, duration: 2, target: 'self' } };
   } else if (element === 'light') {
-    skills.push({ id: 's2', name: `Purify`, icon: '✨', type: 'utility', heal: 20, range: 2, aoe: 0, cooldown: 2, description: `ฮีลเดี่ยว 20% + เพิ่ม SPD (CD: 2)`, applyStatus: { id: 'spd_up', name: 'SPD+', type: 'buff', statModifier: { spd: 1.3 }, duration: 2, target: 'ally' } });
+    skill2 = { id: 's2', name: `Purify`, icon: '✨', type: 'utility', heal: 20, range: 2, aoe: 0, cooldown: 2, description: `ฮีลเดี่ยว 20% + เพิ่ม SPD (CD: 2)`, applyStatus: { id: 'spd_up', name: 'SPD+', type: 'buff', statModifier: { spd: 1.3 }, duration: 2, target: 'ally' } };
   } else if (element === 'dark') {
-    skills.push({ id: 's2', name: `Poison Strike`, icon: '☠️', type: 'utility', damage: 20, range: 2, aoe: 0, cooldown: 2, description: `โจมตีและติดพิษศัตรู (CD: 2)`, applyStatus: { id: 'poison', name: 'Poison', type: 'poison', damagePerTurn: 40, duration: 3, target: 'enemy' } });
+    skill2 = { id: 's2', name: `Poison Strike`, icon: '☠️', type: 'utility', damage: 20, range: 2, aoe: 0, cooldown: 2, description: `โจมตีและติดพิษศัตรู (CD: 2)`, applyStatus: { id: 'poison', name: 'Poison', type: 'poison', damagePerTurn: 40, duration: 3, target: 'enemy' } };
+  }
+  
+  if (skill2) {
+    if (bond < 40) skill2.locked = true;
+    skills.push(skill2);
   }
 
   // Ultimate Skill (Skill 3)
+  let skill3: Skill | null = null;
   if (element === 'light' || element === 'water') {
-    skills.push({ id: 's3', name: `${em} Healing Wave`, icon: em, type: 'ultimate', heal: 40, range: 2, aoe: 1, cooldown: 3, description: `ฮีลเพื่อน 40% (ระยะ: 2 ช่อง) (CD: 3)` });
+    skill3 = { id: 's3', name: `${em} Healing Wave`, icon: em, type: 'ultimate', heal: 40, range: 2, aoe: 1, cooldown: 3, description: `ฮีลเพื่อน 40% (ระยะ: 2 ช่อง) (CD: 3)` };
   } else if (element === 'dark' || element === 'fire') {
-    skills.push({ id: 's3', name: `${em} Destructive Burst`, icon: em, type: 'ultimate', damage: 200, range: 2, aoe: 0, cooldown: 3, description: `ดาเมจ 200% (ระยะ: 2 ช่อง) (CD: 3)` });
+    skill3 = { id: 's3', name: `${em} Destructive Burst`, icon: em, type: 'ultimate', damage: 200, range: 2, aoe: 0, cooldown: 3, description: `ดาเมจ 200% (ระยะ: 2 ช่อง) (CD: 3)` };
   } else {
-    skills.push({ id: 's3', name: `${em} Elemental Storm`, icon: em, type: 'ultimate', damage: 130, range: 2, aoe: 1, cooldown: 3, description: `ดาเมจหมู่ 130% (ระยะ: 2 ช่อง) (CD: 3)` });
+    skill3 = { id: 's3', name: `${em} Elemental Storm`, icon: em, type: 'ultimate', damage: 130, range: 2, aoe: 1, cooldown: 3, description: `ดาเมจหมู่ 130% (ระยะ: 2 ช่อง) (CD: 3)` };
+  }
+
+  if (skill3) {
+    if (bond < 80) skill3.locked = true;
+    skills.push(skill3);
   }
 
   return skills;

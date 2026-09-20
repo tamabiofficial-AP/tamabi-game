@@ -112,13 +112,16 @@ export default function App() {
       newPet.hunger = Math.min(100, pet.hunger + itemDef.effectValue);
       // Food slightly restores energy too
       newPet.energy = Math.min(100, pet.energy + Math.floor(itemDef.effectValue / 2));
+      newPet.bond = Math.min(100, (pet.bond || 0) + 1); // +1 Bond for feeding
     } else if (itemDef.type === 'toy') {
       newPet.happiness = Math.min(100, pet.happiness + itemDef.effectValue);
       // Playing reduces energy
       newPet.energy = Math.max(0, pet.energy - 10);
       newPet.hunger = Math.max(0, pet.hunger - 10);
+      newPet.bond = Math.min(100, (pet.bond || 0) + 2); // +2 Bond for playing
     } else if (itemDef.type === 'medicine') {
       newPet.health = Math.min(100, pet.health + itemDef.effectValue);
+      newPet.bond = Math.min(100, (pet.bond || 0) + 1); // +1 Bond for healing
     }
     
     newPets[activePetIndex] = newPet;
@@ -133,7 +136,8 @@ export default function App() {
       hunger: newPet.hunger,
       happiness: newPet.happiness,
       health: newPet.health,
-      energy: newPet.energy
+      energy: newPet.energy,
+      bond: newPet.bond
     }).eq('id', pet.id);
     
     await supabase.from('profiles').update({
@@ -242,13 +246,15 @@ export default function App() {
   // Compute combat stats with trait bonus
   const s = pet.species_base_stats || {};
   const traitDef = TRAITS[(pet.trait as TraitName) || 'Normal'] || TRAITS['Normal'];
-  const eff_hunger = Math.max(50, pet.hunger || 50) / 100;
-  const eff_happiness = Math.max(50, pet.happiness || 50) / 100;
-  const eff_health = Math.max(50, pet.health || 50) / 100;
-  const combatHP = Math.round((s.base_hp || 0) * eff_hunger) || 0;
-  const combatATK = Math.round((s.base_atk || 0) * eff_happiness * traitDef.bonusAtk) || 0;
-  const combatDEF = Math.round((s.base_def || 0) * eff_hunger * traitDef.bonusDef) || 0;
-  const combatSPD = Math.round((s.base_spd || 0) * eff_health * traitDef.bonusSpd) || 0;
+  
+  // Model D: Care = Power
+  const readinessValue = ((pet.hunger || 0) + (pet.happiness || 0) + (pet.health || 0)) / 3; // 0-100
+  const eff_multiplier = Math.max(0.5, readinessValue / 100); // 50% min cap
+  
+  const combatHP = Math.round((s.base_hp || 0) * eff_multiplier) || 1;
+  const combatATK = Math.round((s.base_atk || 0) * eff_multiplier * traitDef.bonusAtk) || 1;
+  const combatDEF = Math.round((s.base_def || 0) * eff_multiplier * traitDef.bonusDef) || 1;
+  const combatSPD = Math.round((s.base_spd || 0) * eff_multiplier * traitDef.bonusSpd) || 1;
 
   // Filter inventory items based on current tab
   const availableItems = Object.keys(ITEMS).filter(itemId => ITEMS[itemId].type === inventoryFilter && profile.inventory && profile.inventory[itemId] > 0);
@@ -339,12 +345,24 @@ export default function App() {
 
       {/* Care Dashboard */}
       <section className="glass-panel" style={{ padding: '1.2rem' }}>
-        <h3 style={{ marginBottom: '1rem', fontSize: '1rem' }}>Care Status</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3 style={{ fontSize: '1rem' }}>Care Status</h3>
+          <div style={{ background: 'rgba(255,255,255,0.1)', padding: '0.2rem 0.6rem', borderRadius: '12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+            ⚔️ Readiness: <strong style={{ color: readinessValue >= 80 ? '#1dd1a1' : readinessValue >= 50 ? '#feca57' : '#ff6b6b' }}>{Math.round(readinessValue)}%</strong>
+          </div>
+        </div>
         
-        <StatBar label="Happiness (ATK)" value={pet.happiness} colorVar="--stat-happiness" icon={Heart} />
-        <StatBar label="Hunger (HP/DEF)" value={pet.hunger} colorVar="--stat-hunger" icon={Utensils} />
-        <StatBar label="Health (SPD)" value={pet.health} colorVar="--stat-health" icon={Activity} />
-        <StatBar label="Energy (Stamina)" value={pet.energy} colorVar="--stat-energy" icon={Zap} />
+        <StatBar label="Happiness" value={pet.happiness} colorVar="--stat-happiness" icon={Heart} />
+        <StatBar label="Hunger" value={pet.hunger} colorVar="--stat-hunger" icon={Utensils} />
+        <StatBar label="Health" value={pet.health} colorVar="--stat-health" icon={Activity} />
+        <StatBar label="Energy" value={pet.energy} colorVar="--stat-energy" icon={Zap} />
+        
+        <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '0.8rem' }}>
+          <StatBar label="Bond (Skill Unlock)" value={pet.bond || 0} colorVar="--accent-color" icon={Sparkles} />
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textAlign: 'right', marginTop: '0.2rem' }}>
+            {(pet.bond || 0) < 40 ? `🔒 สกิล 2 ปลดล็อคที่ 40` : (pet.bond || 0) < 80 ? `🔒 ไม้ตายปลดล็อคที่ 80` : `✨ ปลดล็อคครบแล้ว`}
+          </div>
+        </div>
 
         {/* Quick Actions */}
         <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.5rem', justifyContent: 'space-between' }}>
