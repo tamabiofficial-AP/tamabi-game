@@ -9,7 +9,8 @@ import AuthScreen from './components/AuthScreen';
 import ShopScreen from './components/ShopScreen';
 import TeamSelectScreen from './components/TeamSelectScreen';
 import QuestScreen from './components/QuestScreen';
-import BossSelectScreen, { BossDef } from './components/BossSelectScreen';
+import BossSelectScreen from './components/BossSelectScreen';
+import type { BossDef } from './components/BossSelectScreen';
 import { ITEMS } from './engine/itemSystem';
 
 import { SPECIES_EMOJI, TRAITS } from './engine/petData';
