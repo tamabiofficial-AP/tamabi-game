@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Heart, Utensils, Activity, Sparkles, Play, Zap, ChevronLeft, ChevronRight, Book, LogOut, ShoppingBag, X, Target, Star, Skull } from 'lucide-react';
+import { Heart, Activity, Play, Settings, Map, ChevronRight, Zap, Target, BookOpen, Clock, Gift, Shield, Compass, Camera, Sparkles, Book, ShoppingBag, X, CheckCircle, Skull, Swords, LogOut, ChevronLeft, Utensils, Star } from 'lucide-react';
 import { supabase } from './lib/supabaseClient';
 import './index.css';
 import BattleScreen from './components/BattleScreen';
@@ -11,6 +11,8 @@ import TeamSelectScreen from './components/TeamSelectScreen';
 import QuestScreen from './components/QuestScreen';
 import BossSelectScreen from './components/BossSelectScreen';
 import type { BossDef } from './components/BossSelectScreen';
+import BattleMenuScreen from './components/BattleMenuScreen';
+import PvPArenaScreen from './components/PvPArenaScreen';
 import { ITEMS } from './engine/itemSystem';
 
 import { SPECIES_EMOJI, TRAITS } from './engine/petData';
@@ -46,7 +48,8 @@ const StatBar = ({ label, value, colorVar, icon: Icon }: any) => (
 );
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<'home' | 'battle' | 'team_setup' | 'scanner' | 'wiki' | 'shop' | 'quest' | 'boss_select'>('home');
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'battle' | 'team_setup' | 'scanner' | 'wiki' | 'shop' | 'quest' | 'boss_select' | 'battle_menu' | 'pvp_arena'>('home');
+  const [battleMode, setBattleMode] = useState<'pve' | 'boss' | 'pvp'>('pve');
   const [isLoading, setIsLoading] = useState(true);
   
   // Auth State
@@ -185,14 +188,48 @@ export default function App() {
     );
   }
 
+  if (currentScreen === 'battle_menu') {
+    return (
+      <BattleMenuScreen 
+        onSelectMode={(mode) => {
+          setBattleMode(mode);
+          if (mode === 'pve') {
+            setSelectedBoss(null);
+            setCurrentScreen('team_setup');
+          } else if (mode === 'boss') {
+            setCurrentScreen('boss_select');
+          } else if (mode === 'pvp') {
+            setCurrentScreen('pvp_arena');
+          }
+        }}
+        onBack={() => setCurrentScreen('home')}
+      />
+    );
+  }
+
+  if (currentScreen === 'pvp_arena') {
+    return (
+      <PvPArenaScreen 
+        playerId={currentUser}
+        playerProfile={profile}
+        onMatchFound={() => {
+          setBattleMode('pvp');
+          setCurrentScreen('team_setup');
+        }}
+        onBack={() => setCurrentScreen('battle_menu')}
+      />
+    );
+  }
+
   if (currentScreen === 'boss_select') {
     return (
       <BossSelectScreen 
         onSelectBoss={(boss) => {
           setSelectedBoss(boss);
+          setBattleMode('boss');
           setCurrentScreen('team_setup');
         }}
-        onBack={() => setCurrentScreen('home')}
+        onBack={() => setCurrentScreen('battle_menu')}
       />
     );
   }
@@ -201,7 +238,7 @@ export default function App() {
     return (
       <TeamSelectScreen 
         playerPets={pets} 
-        onBack={() => setCurrentScreen(selectedBoss ? 'boss_select' : 'home')}
+        onBack={() => setCurrentScreen(battleMode === 'boss' ? 'boss_select' : battleMode === 'pvp' ? 'pvp_arena' : 'battle_menu')}
         bossMode={!!selectedBoss}
         onStartBattle={(selectedIds) => {
           setSelectedPartyIds(selectedIds);
@@ -212,7 +249,22 @@ export default function App() {
   }
 
   if (currentScreen === 'battle') {
-    return <BattleScreen playerId={currentUser} activePetIds={selectedPartyIds} bossData={selectedBoss} onBack={() => { setSelectedBoss(null); setCurrentScreen('home'); }} />;
+    return (
+      <BattleScreen 
+        playerId={currentUser} 
+        activePetIds={selectedPartyIds} 
+        bossData={selectedBoss} 
+        mode={battleMode}
+        onBack={() => { 
+          setSelectedBoss(null); 
+          // After battle ends, force reload profile to see updated ELO/EXP
+          supabase.from('profiles').select('*').eq('id', currentUser).single().then(({data}) => {
+            if (data) setProfile(data);
+          });
+          setCurrentScreen('home'); 
+        }} 
+      />
+    );
   }
 
   if (currentScreen === 'scanner') {
@@ -477,19 +529,11 @@ export default function App() {
       <nav style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
         <button 
           className="glass-panel" 
-          onClick={() => { setSelectedBoss(null); setCurrentScreen('team_setup'); }}
+          onClick={() => setCurrentScreen('battle_menu')}
           style={{ flex: '1 1 20%', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0.8rem 0.4rem', gap: '0.4rem', border: 'none', cursor: 'pointer' }}
         >
-          <Play size={20} color="var(--primary-color)" />
+          <Swords size={20} color="#ff6b6b" />
           <span style={{ fontSize: '0.7rem', fontWeight: 600 }}>Battle</span>
-        </button>
-        <button 
-          className="glass-panel" 
-          onClick={() => setCurrentScreen('boss_select')}
-          style={{ flex: '1 1 20%', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0.8rem 0.4rem', gap: '0.4rem', border: 'none', cursor: 'pointer' }}
-        >
-          <Skull size={20} color="#ff6b6b" />
-          <span style={{ fontSize: '0.7rem', fontWeight: 600 }}>Boss</span>
         </button>
         <button 
           className="glass-panel" 

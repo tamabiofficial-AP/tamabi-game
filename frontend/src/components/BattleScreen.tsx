@@ -33,10 +33,11 @@ interface BattleScreenProps {
   playerId: string;
   activePetIds: string[];
   bossData?: any;
+  mode?: 'pve' | 'boss' | 'pvp';
   onBack: () => void;
 }
 
-export default function BattleScreen({ playerId, activePetIds, bossData, onBack }: BattleScreenProps) {
+export default function BattleScreen({ playerId, activePetIds, bossData, mode = 'pve', onBack }: BattleScreenProps) {
   const [units, setUnits] = useState<PetUnit[]>([]);
   useEffect(() => { console.log("[DEBUG] Units updated:", units); }, [units]);
   const [isLoading, setIsLoading] = useState(true);
@@ -208,7 +209,7 @@ export default function BattleScreen({ playerId, activePetIds, bossData, onBack 
       setIsSaving(true);
       const playerUnits = units.filter(u => u.team === 'player');
       const customRewards = bossData?.rewards;
-      processBattleResult(endResult, playerId, playerUnits, customRewards).then(res => {
+      processBattleResult(endResult, playerId, playerUnits, customRewards, mode).then(res => {
         if (res) setReward(res);
         setIsSaving(false);
       });
@@ -573,9 +574,23 @@ export default function BattleScreen({ playerId, activePetIds, bossData, onBack 
         ) : reward ? (
           <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center', minWidth: '300px', animation: 'popup 0.5s ease-out' }}>
             <h3 style={{ marginBottom: '1rem', color: '#1dd1a1' }}>รางวัลที่ได้รับ</h3>
-            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>🪙 +{reward.coins} Pet Coins</p>
-            {reward.starPoints && <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#feca57' }}>⭐ +{reward.starPoints} Star Points</p>}
-            {reward.couponId && <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#ff9f43' }}>🎟️ ได้รับคูปองพิเศษ!</p>}
+            {mode === 'pvp' ? (
+              <>
+                <p style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.5rem', color: phase === 'victory' ? '#feca57' : '#ff6b6b' }}>
+                  🏆 Rating: {reward.eloChange! > 0 ? '+' : ''}{reward.eloChange} (รวม: {reward.newElo})
+                </p>
+                <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#1dd1a1' }}>
+                  ⭐ +{reward.expGained} Battle EXP
+                </p>
+              </>
+            ) : (
+              <>
+                <p style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>🪙 +{reward.coins} Pet Coins</p>
+                {reward.expGained && <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#1dd1a1' }}>⭐ +{reward.expGained} Battle EXP</p>}
+                {reward.starPoints && <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#feca57' }}>⭐ +{reward.starPoints} Star Points</p>}
+                {reward.couponId && <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#ff9f43' }}>🎟️ ได้รับคูปองพิเศษ!</p>}
+              </>
+            )}
             <hr style={{ margin: '1.5rem 0', opacity: 0.2 }} />
             <h3 style={{ marginBottom: '1rem', color: '#ff6b6b' }}>สถานะสัตว์เลี้ยงที่เสียไป</h3>
             <p>⚡ Energy: -{reward.energyCost}</p>
