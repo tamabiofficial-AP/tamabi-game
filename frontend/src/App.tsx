@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Heart, Utensils, Activity, Sparkles, Play, Zap, ChevronLeft, ChevronRight, Book, LogOut, ShoppingBag, X, Target, Star } from 'lucide-react';
+import { Heart, Utensils, Activity, Sparkles, Play, Zap, ChevronLeft, ChevronRight, Book, LogOut, ShoppingBag, X, Target, Star, Skull } from 'lucide-react';
 import { supabase } from './lib/supabaseClient';
 import './index.css';
 import BattleScreen from './components/BattleScreen';
@@ -9,6 +9,7 @@ import AuthScreen from './components/AuthScreen';
 import ShopScreen from './components/ShopScreen';
 import TeamSelectScreen from './components/TeamSelectScreen';
 import QuestScreen from './components/QuestScreen';
+import BossSelectScreen, { BossDef } from './components/BossSelectScreen';
 import { ITEMS } from './engine/itemSystem';
 
 import { SPECIES_EMOJI, TRAITS } from './engine/petData';
@@ -44,7 +45,7 @@ const StatBar = ({ label, value, colorVar, icon: Icon }: any) => (
 );
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<'home' | 'battle' | 'team_setup' | 'scanner' | 'wiki' | 'shop' | 'quest'>('home');
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'battle' | 'team_setup' | 'scanner' | 'wiki' | 'shop' | 'quest' | 'boss_select'>('home');
   const [isLoading, setIsLoading] = useState(true);
   
   // Auth State
@@ -54,6 +55,7 @@ export default function App() {
   const [pets, setPets] = useState<any[]>([]);
   const [activePetIndex, setActivePetIndex] = useState(0);
   const [selectedPartyIds, setSelectedPartyIds] = useState<string[]>([]);
+  const [selectedBoss, setSelectedBoss] = useState<BossDef | null>(null);
   const [readiness, setReadiness] = useState(0);
 
   // Inventory Modal State
@@ -182,11 +184,24 @@ export default function App() {
     );
   }
 
+  if (currentScreen === 'boss_select') {
+    return (
+      <BossSelectScreen 
+        onSelectBoss={(boss) => {
+          setSelectedBoss(boss);
+          setCurrentScreen('team_setup');
+        }}
+        onBack={() => setCurrentScreen('home')}
+      />
+    );
+  }
+
   if (currentScreen === 'team_setup') {
     return (
       <TeamSelectScreen 
         playerPets={pets} 
-        onBack={() => setCurrentScreen('home')}
+        onBack={() => setCurrentScreen(selectedBoss ? 'boss_select' : 'home')}
+        bossMode={!!selectedBoss}
         onStartBattle={(selectedIds) => {
           setSelectedPartyIds(selectedIds);
           setCurrentScreen('battle');
@@ -196,7 +211,7 @@ export default function App() {
   }
 
   if (currentScreen === 'battle') {
-    return <BattleScreen playerId={currentUser} activePetIds={selectedPartyIds} onBack={() => setCurrentScreen('home')} />;
+    return <BattleScreen playerId={currentUser} activePetIds={selectedPartyIds} bossData={selectedBoss} onBack={() => { setSelectedBoss(null); setCurrentScreen('home'); }} />;
   }
 
   if (currentScreen === 'scanner') {
@@ -461,11 +476,19 @@ export default function App() {
       <nav style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
         <button 
           className="glass-panel" 
-          onClick={() => setCurrentScreen('team_setup')}
+          onClick={() => { setSelectedBoss(null); setCurrentScreen('team_setup'); }}
           style={{ flex: '1 1 20%', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0.8rem 0.4rem', gap: '0.4rem', border: 'none', cursor: 'pointer' }}
         >
           <Play size={20} color="var(--primary-color)" />
           <span style={{ fontSize: '0.7rem', fontWeight: 600 }}>Battle</span>
+        </button>
+        <button 
+          className="glass-panel" 
+          onClick={() => setCurrentScreen('boss_select')}
+          style={{ flex: '1 1 20%', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0.8rem 0.4rem', gap: '0.4rem', border: 'none', cursor: 'pointer' }}
+        >
+          <Skull size={20} color="#ff6b6b" />
+          <span style={{ fontSize: '0.7rem', fontWeight: 600 }}>Boss</span>
         </button>
         <button 
           className="glass-panel" 

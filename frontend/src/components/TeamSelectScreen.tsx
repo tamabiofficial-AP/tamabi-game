@@ -13,9 +13,10 @@ interface TeamSelectScreenProps {
   playerPets: any[];
   onStartBattle: (selectedIds: string[]) => void;
   onBack: () => void;
+  bossMode?: boolean;
 }
 
-export default function TeamSelectScreen({ playerPets, onStartBattle, onBack }: TeamSelectScreenProps) {
+export default function TeamSelectScreen({ playerPets, onStartBattle, onBack, bossMode = false }: TeamSelectScreenProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const toggleSelection = (petId: string) => {
@@ -56,8 +57,8 @@ export default function TeamSelectScreen({ playerPets, onStartBattle, onBack }: 
         <button className="btn-icon" onClick={onBack} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'white' }}>
           <ChevronLeft size={24} />
         </button>
-        <h2 style={{ fontSize: '1.2rem', textAlign: 'center', flex: 1 }}>
-          จัดทีมต่อสู้ ({selectedIds.length}/3)
+        <h2 style={{ fontSize: '1.2rem', textAlign: 'center', flex: 1, color: bossMode ? '#ff6b6b' : 'white' }}>
+          {bossMode ? 'จัดทีมปราบ Boss 👹' : 'จัดทีมต่อสู้'} ({selectedIds.length}/3)
         </h2>
         <div style={{ width: '40px' }} /> {/* Spacer */}
       </header>

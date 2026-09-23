@@ -32,10 +32,11 @@ const SPECIES_RANGED = ['Eagle', 'Bat'];
 interface BattleScreenProps {
   playerId: string;
   activePetIds: string[];
+  bossData?: any;
   onBack: () => void;
 }
 
-export default function BattleScreen({ playerId, activePetIds, onBack }: BattleScreenProps) {
+export default function BattleScreen({ playerId, activePetIds, bossData, onBack }: BattleScreenProps) {
   const [units, setUnits] = useState<PetUnit[]>([]);
   useEffect(() => { console.log("[DEBUG] Units updated:", units); }, [units]);
   const [isLoading, setIsLoading] = useState(true);
@@ -73,7 +74,7 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
             name, element, base_hp, base_atk, base_def, base_spd
           )
         `)
-        .in('owner_id', [playerId, ENEMY_ID]);
+        .in('owner_id', bossData ? [playerId] : [playerId, ENEMY_ID]);
 
       if (error) {
         console.error('Error fetching pets:', error);
@@ -140,6 +141,28 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
           };
         });
 
+        if (bossData) {
+          fetchedUnits.push({
+            id: bossData.id,
+            name: bossData.name,
+            emoji: bossData.emoji,
+            element: bossData.element,
+            team: 'enemy',
+            maxHp: bossData.hp,
+            hp: bossData.hp,
+            atk: 35,
+            def: 15,
+            spd: 12,
+            skills: makeSkills(bossData.element, false, 100),
+            cooldowns: {},
+            statusEffects: [],
+            row: 2, col: 3,
+            hasMoved: false,
+            hasActed: false,
+            isDead: false
+          });
+        }
+
         setUnits(fetchedUnits);
         
         // Initialize turn order
@@ -184,7 +207,8 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
       // Save results to Supabase
       setIsSaving(true);
       const playerUnits = units.filter(u => u.team === 'player');
-      processBattleResult(endResult, playerId, playerUnits).then(res => {
+      const customRewards = bossData?.rewards;
+      processBattleResult(endResult, playerId, playerUnits, customRewards).then(res => {
         if (res) setReward(res);
         setIsSaving(false);
       });
@@ -550,6 +574,8 @@ export default function BattleScreen({ playerId, activePetIds, onBack }: BattleS
           <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center', minWidth: '300px', animation: 'popup 0.5s ease-out' }}>
             <h3 style={{ marginBottom: '1rem', color: '#1dd1a1' }}>รางวัลที่ได้รับ</h3>
             <p style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>🪙 +{reward.coins} Pet Coins</p>
+            {reward.starPoints && <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#feca57' }}>⭐ +{reward.starPoints} Star Points</p>}
+            {reward.couponId && <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#ff9f43' }}>🎟️ ได้รับคูปองพิเศษ!</p>}
             <hr style={{ margin: '1.5rem 0', opacity: 0.2 }} />
             <h3 style={{ marginBottom: '1rem', color: '#ff6b6b' }}>สถานะสัตว์เลี้ยงที่เสียไป</h3>
             <p>⚡ Energy: -{reward.energyCost}</p>
