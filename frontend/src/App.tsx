@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Heart, Utensils, Activity, Sparkles, Play, Zap, ChevronLeft, ChevronRight, Book, LogOut, ShoppingBag, X } from 'lucide-react';
+import { Heart, Utensils, Activity, Sparkles, Play, Zap, ChevronLeft, ChevronRight, Book, LogOut, ShoppingBag, X, Target, Star } from 'lucide-react';
 import { supabase } from './lib/supabaseClient';
 import './index.css';
 import BattleScreen from './components/BattleScreen';
@@ -8,10 +8,17 @@ import WikiScreen from './components/WikiScreen';
 import AuthScreen from './components/AuthScreen';
 import ShopScreen from './components/ShopScreen';
 import TeamSelectScreen from './components/TeamSelectScreen';
+import QuestScreen from './components/QuestScreen';
 import { ITEMS } from './engine/itemSystem';
 
 import { SPECIES_EMOJI, TRAITS } from './engine/petData';
 import type { TraitName } from './engine/petData';
+
+const COUPONS: Record<string, {name: string, emoji: string, id: string}> = {
+  'coupon_33backyard_15': { id: 'coupon_33backyard_15', name: 'The 33 Backyard - ส่วนลด 15%', emoji: '☕' },
+  'coupon_secretcafe_cake': { id: 'coupon_secretcafe_cake', name: 'Secret Cafe - ฟรีขนมเค้ก 1 ชิ้น', emoji: '🍰' },
+  'coupon_gacha_ticket': { id: 'coupon_gacha_ticket', name: 'ตั๋วสุ่มกาชาพิเศษ 1 ใบ', emoji: '🎟️' }
+};
 
 // Stat Bar Component
 const StatBar = ({ label, value, colorVar, icon: Icon }: any) => (
@@ -37,7 +44,7 @@ const StatBar = ({ label, value, colorVar, icon: Icon }: any) => (
 );
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<'home' | 'battle' | 'team_setup' | 'scanner' | 'wiki' | 'shop'>('home');
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'battle' | 'team_setup' | 'scanner' | 'wiki' | 'shop' | 'quest'>('home');
   const [isLoading, setIsLoading] = useState(true);
   
   // Auth State
@@ -51,7 +58,7 @@ export default function App() {
 
   // Inventory Modal State
   const [inventoryModalOpen, setInventoryModalOpen] = useState(false);
-  const [inventoryFilter, setInventoryFilter] = useState<'food' | 'toy' | 'medicine'>('food');
+  const [inventoryFilter, setInventoryFilter] = useState<'food' | 'toy' | 'medicine' | 'coupon'>('food');
 
   const pet = pets[activePetIndex];
 
@@ -147,7 +154,21 @@ export default function App() {
     setInventoryModalOpen(false);
   };
 
-  const openInventory = (type: 'food' | 'toy' | 'medicine') => {
+  const handleUseCoupon = async (couponId: string) => {
+    if (!window.confirm(`ยืนยันการใช้คูปอง ${COUPONS[couponId].name}?\n\n(สำหรับให้พนักงานร้านค้ากดยืนยันเท่านั้น)`)) return;
+    
+    const currentInv = profile.inventory || {};
+    const newInv = { ...currentInv, [couponId]: Math.max(0, (currentInv[couponId] || 1) - 1) };
+    
+    const { error } = await supabase.from('profiles').update({ inventory: newInv }).eq('id', profile.id);
+    if (!error) {
+      setProfile({ ...profile, inventory: newInv });
+      alert('ใช้งานคูปองสำเร็จ! 🎉');
+      if (newInv[couponId] === 0) setInventoryModalOpen(false);
+    }
+  };
+
+  const openInventory = (type: 'food' | 'toy' | 'medicine' | 'coupon') => {
     setInventoryFilter(type);
     setInventoryModalOpen(true);
   };
@@ -191,8 +212,20 @@ export default function App() {
       <ShopScreen 
         playerId={currentUser} 
         currentCoins={profile?.pet_coins || 0}
+        inventory={profile?.inventory || {}}
         onUpdateCoins={(newBalance) => setProfile(profile ? { ...profile, pet_coins: newBalance } : null)}
+        onUpdateInventory={(newInv) => setProfile(profile ? { ...profile, inventory: newInv } : null)}
         onBack={() => setCurrentScreen('home')} 
+      />
+    );
+  }
+
+  if (currentScreen === 'quest') {
+    return (
+      <QuestScreen 
+        playerId={currentUser}
+        onUpdateStats={(newCoins, newInventory) => setProfile(profile ? { ...profile, pet_coins: newCoins, inventory: newInventory } : null)}
+        onBack={() => setCurrentScreen('home')}
       />
     );
   }
@@ -213,7 +246,8 @@ export default function App() {
           <div>
             <h2 style={{ fontSize: '1.2rem' }}>{profile.username}</h2>
             <div style={{ display: 'flex', gap: '1rem', marginTop: '0.2rem' }}>
-              <span style={{ fontSize: '0.8rem', color: '#feca57' }}>🪙 {profile.pet_coins}</span>
+              <span style={{ fontSize: '0.8rem', color: '#feca57' }}>⭐ {profile.inventory?.star_points || 0}</span>
+              <span style={{ fontSize: '0.8rem', color: '#ff9f43' }}>🪙 {profile.pet_coins}</span>
             </div>
           </div>
           <button className="btn-icon" onClick={() => {
@@ -230,9 +264,10 @@ export default function App() {
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🥚</div>
           <h2>ยังไม่มีมอนสเตอร์</h2>
           <p style={{ marginTop: '0.5rem', marginBottom: '2rem', opacity: 0.8 }}>ไปสุ่มกาชา หรือสแกน QR Code เพื่อรับมอนสเตอร์ตัวแรกกันเลย!</p>
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <button className="btn" onClick={() => setCurrentScreen('shop')}>🎁 สุ่มกาชา (500 🪙)</button>
-            <button className="btn" style={{ background: 'linear-gradient(135deg, #1dd1a1, #0fb9b1)' }} onClick={() => setCurrentScreen('scanner')}>📷 สแกน QR (ฟรี)</button>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center', maxWidth: '300px' }}>
+            <button className="btn" style={{ flex: '1 1 45%', padding: '0.8rem 0.5rem', justifyContent: 'center' }} onClick={() => setCurrentScreen('shop')}>🎁 สุ่มกาชา</button>
+            <button className="btn" style={{ flex: '1 1 45%', padding: '0.8rem 0.5rem', justifyContent: 'center', background: 'linear-gradient(135deg, #1dd1a1, #0fb9b1)' }} onClick={() => setCurrentScreen('scanner')}>📷 สแกน QR</button>
+            <button className="btn" style={{ flex: '1 1 100%', padding: '0.8rem 0.5rem', justifyContent: 'center', background: 'var(--primary-color)' }} onClick={() => setCurrentScreen('quest')}>🎯 ทำเควสรับเหรียญเพิ่ม</button>
           </div>
         </main>
       </div>
@@ -257,7 +292,9 @@ export default function App() {
   const combatSPD = Math.round((s.base_spd || 0) * eff_multiplier * traitDef.bonusSpd) || 1;
 
   // Filter inventory items based on current tab
-  const availableItems = Object.keys(ITEMS).filter(itemId => ITEMS[itemId].type === inventoryFilter && profile.inventory && profile.inventory[itemId] > 0);
+  const availableItems = inventoryFilter === 'coupon'
+    ? Object.keys(COUPONS).filter(itemId => profile.inventory && profile.inventory[itemId] > 0)
+    : Object.keys(ITEMS).filter(itemId => ITEMS[itemId].type === inventoryFilter && profile.inventory && profile.inventory[itemId] > 0);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '1rem', position: 'relative' }}>
@@ -365,15 +402,18 @@ export default function App() {
         </div>
 
         {/* Quick Actions */}
-        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.5rem', justifyContent: 'space-between' }}>
-          <button className="btn" style={{ flex: 1, padding: '0.6rem', fontSize: '0.9rem', justifyContent: 'center' }} onClick={() => openInventory('food')}>
+        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.5rem', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <button className="btn" style={{ flex: '1 1 30%', padding: '0.6rem', fontSize: '0.9rem', justifyContent: 'center' }} onClick={() => openInventory('food')}>
             <Utensils size={18} /> Feed
           </button>
-          <button className="btn" style={{ flex: 1, padding: '0.6rem', fontSize: '0.9rem', justifyContent: 'center', background: 'linear-gradient(135deg, #ff6b6b, #e84393)' }} onClick={() => openInventory('toy')}>
+          <button className="btn" style={{ flex: '1 1 30%', padding: '0.6rem', fontSize: '0.9rem', justifyContent: 'center', background: 'linear-gradient(135deg, #ff6b6b, #e84393)' }} onClick={() => openInventory('toy')}>
             <Heart size={18} /> Play
           </button>
-          <button className="btn" style={{ flex: 1, padding: '0.6rem', fontSize: '0.9rem', justifyContent: 'center', background: 'linear-gradient(135deg, #2ecc71, #27ae60)' }} onClick={() => openInventory('medicine')}>
+          <button className="btn" style={{ flex: '1 1 30%', padding: '0.6rem', fontSize: '0.9rem', justifyContent: 'center', background: 'linear-gradient(135deg, #2ecc71, #27ae60)' }} onClick={() => openInventory('medicine')}>
             <Activity size={18} /> Heal
+          </button>
+          <button className="btn" style={{ flex: '1 1 100%', padding: '0.8rem', fontSize: '1rem', justifyContent: 'center', background: 'linear-gradient(135deg, #feca57, #ff9f43)', color: '#000' }} onClick={() => openInventory('coupon')}>
+            <Star size={18} /> My Coupons (คูปองส่วนลด)
           </button>
         </div>
       </section>
@@ -418,38 +458,46 @@ export default function App() {
       </section>
 
       {/* Bottom Navigation Area */}
-      <nav style={{ display: 'flex', gap: '0.5rem' }}>
+      <nav style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
         <button 
           className="glass-panel" 
           onClick={() => setCurrentScreen('team_setup')}
-          style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0.8rem', gap: '0.4rem', border: 'none', cursor: 'pointer' }}
+          style={{ flex: '1 1 20%', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0.8rem 0.4rem', gap: '0.4rem', border: 'none', cursor: 'pointer' }}
         >
-          <Play size={24} color="var(--primary-color)" />
-          <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Battle</span>
+          <Play size={20} color="var(--primary-color)" />
+          <span style={{ fontSize: '0.7rem', fontWeight: 600 }}>Battle</span>
+        </button>
+        <button 
+          className="glass-panel" 
+          onClick={() => setCurrentScreen('quest')}
+          style={{ flex: '1 1 20%', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0.8rem 0.4rem', gap: '0.4rem', border: 'none', cursor: 'pointer' }}
+        >
+          <Target size={20} color="#1dd1a1" />
+          <span style={{ fontSize: '0.7rem', fontWeight: 600 }}>Quest</span>
         </button>
         <button 
           className="glass-panel" 
           onClick={() => setCurrentScreen('scanner')}
-          style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0.8rem', gap: '0.4rem', border: 'none', cursor: 'pointer' }}
+          style={{ flex: '1 1 20%', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0.8rem 0.4rem', gap: '0.4rem', border: 'none', cursor: 'pointer' }}
         >
-          <Sparkles size={24} color="var(--stat-health)" />
-          <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Scanner</span>
+          <Sparkles size={20} color="var(--stat-health)" />
+          <span style={{ fontSize: '0.7rem', fontWeight: 600 }}>Scan</span>
         </button>
         <button 
           className="glass-panel" 
           onClick={() => setCurrentScreen('shop')}
-          style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0.8rem', gap: '0.4rem', border: 'none', cursor: 'pointer' }}
+          style={{ flex: '1 1 20%', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0.8rem 0.4rem', gap: '0.4rem', border: 'none', cursor: 'pointer' }}
         >
-          <ShoppingBag size={24} color="#feca57" />
-          <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Shop</span>
+          <ShoppingBag size={20} color="#feca57" />
+          <span style={{ fontSize: '0.7rem', fontWeight: 600 }}>Shop</span>
         </button>
         <button 
           className="glass-panel" 
           onClick={() => setCurrentScreen('wiki')}
-          style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0.8rem', gap: '0.4rem', border: 'none', cursor: 'pointer' }}
+          style={{ flex: '1 1 20%', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0.8rem 0.4rem', gap: '0.4rem', border: 'none', cursor: 'pointer' }}
         >
-          <Book size={24} color="var(--stat-energy)" />
-          <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Wiki</span>
+          <Book size={20} color="var(--stat-energy)" />
+          <span style={{ fontSize: '0.7rem', fontWeight: 600 }}>Wiki</span>
         </button>
       </nav>
 
@@ -459,8 +507,8 @@ export default function App() {
           <div className="glass-panel" style={{ margin: '1rem', padding: '1.5rem', animation: 'slide-up 0.3s ease-out' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h3 style={{ fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                {inventoryFilter === 'food' ? <Utensils /> : inventoryFilter === 'toy' ? <Heart /> : <Activity />}
-                คลังไอเทม ({inventoryFilter})
+                {inventoryFilter === 'food' ? <Utensils /> : inventoryFilter === 'toy' ? <Heart /> : inventoryFilter === 'coupon' ? <Star /> : <Activity />}
+                {inventoryFilter === 'coupon' ? 'คูปองของฉัน' : `คลังไอเทม (${inventoryFilter})`}
               </h3>
               <button className="btn-icon" onClick={() => setInventoryModalOpen(false)}>
                 <X size={24} />
@@ -478,15 +526,15 @@ export default function App() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', maxHeight: '40vh', overflowY: 'auto' }}>
                 {availableItems.map(itemId => (
                   <div key={itemId} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '1rem', textAlign: 'center', border: '1px solid rgba(255,255,255,0.1)' }}>
-                    <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>{ITEMS[itemId].emoji}</div>
-                    <div style={{ fontSize: '0.9rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>{ITEMS[itemId].name}</div>
+                    <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>{inventoryFilter === 'coupon' ? COUPONS[itemId].emoji : ITEMS[itemId].emoji}</div>
+                    <div style={{ fontSize: '0.9rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>{inventoryFilter === 'coupon' ? COUPONS[itemId].name : ITEMS[itemId].name}</div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>มีอยู่: {profile.inventory[itemId]} ชิ้น</div>
                     <button 
                       className="btn" 
-                      style={{ width: '100%', padding: '0.5rem', fontSize: '0.9rem', justifyContent: 'center' }}
-                      onClick={() => handleUseItem(itemId)}
+                      style={{ width: '100%', padding: '0.5rem', fontSize: '0.8rem', justifyContent: 'center', background: inventoryFilter === 'coupon' ? '#ff6b6b' : 'var(--primary-color)', color: inventoryFilter === 'coupon' ? '#fff' : 'inherit' }}
+                      onClick={() => inventoryFilter === 'coupon' ? handleUseCoupon(itemId) : handleUseItem(itemId)}
                     >
-                      ใช้งาน
+                      {inventoryFilter === 'coupon' ? 'ใช้คูปอง (Staff)' : 'ใช้งาน'}
                     </button>
                   </div>
                 ))}

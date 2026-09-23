@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronLeft, ShoppingBag, Gift, Sparkles, PackageOpen } from 'lucide-react';
+import { ChevronLeft, ShoppingBag, Gift, Sparkles, PackageOpen, Star } from 'lucide-react';
 import { rollGacha } from '../engine/gachaSystem';
 import type { GachaResult } from '../engine/gachaSystem';
 import { ITEMS } from '../engine/itemSystem';
@@ -12,12 +12,14 @@ const GACHA_COST = 500;
 interface ShopScreenProps {
   playerId: string;
   currentCoins: number;
+  inventory: Record<string, number>;
   onUpdateCoins: (newBalance: number) => void;
+  onUpdateInventory: (newInv: Record<string, number>) => void;
   onBack: () => void;
 }
 
-export default function ShopScreen({ playerId, currentCoins, onUpdateCoins, onBack }: ShopScreenProps) {
-  const [activeTab, setActiveTab] = useState<'gacha' | 'items'>('items');
+export default function ShopScreen({ playerId, currentCoins, inventory, onUpdateCoins, onUpdateInventory, onBack }: ShopScreenProps) {
+  const [activeTab, setActiveTab] = useState<'gacha' | 'items' | 'coupons'>('items');
   const [isRolling, setIsRolling] = useState(false);
   const [result, setResult] = useState<GachaResult | null>(null);
   const [itemResult, setItemResult] = useState<{success: boolean, message: string} | null>(null);
@@ -84,6 +86,54 @@ export default function ShopScreen({ playerId, currentCoins, onUpdateCoins, onBa
     }
   };
 
+  const COUPONS = [
+    { id: 'coupon_33backyard_15', name: 'The 33 Backyard - ส่วนลด 15%', emoji: '☕', price: 100 },
+    { id: 'coupon_secretcafe_cake', name: 'Secret Cafe - ฟรีขนมเค้ก 1 ชิ้น', emoji: '🍰', price: 250 },
+    { id: 'coupon_gacha_ticket', name: 'ตั๋วสุ่มกาชาพิเศษ 1 ใบ', emoji: '🎟️', price: 50 }
+  ];
+
+  const handleBuyCoupon = async (couponId: string, price: number) => {
+    const currentStarPoints = inventory?.star_points || 0;
+    if (currentStarPoints < price) {
+      setItemResult({ success: false, message: 'Star Points ไม่พอแลกคูปอง' });
+      setTimeout(() => setItemResult(null), 3000);
+      return;
+    }
+
+    try {
+      const { data: profile, error: profileErr } = await supabase
+        .from('profiles')
+        .select('inventory')
+        .eq('id', playerId)
+        .single();
+        
+      if (profileErr) throw profileErr;
+
+      const currentInv = profile.inventory || {};
+      const newStarPoints = (currentInv.star_points || 0) - price;
+      const newInv = { 
+        ...currentInv, 
+        star_points: newStarPoints,
+        [couponId]: (currentInv[couponId] || 0) + 1 
+      };
+
+      const { error: updateErr } = await supabase
+        .from('profiles')
+        .update({ inventory: newInv })
+        .eq('id', playerId);
+
+      if (updateErr) throw updateErr;
+
+      onUpdateInventory(newInv);
+      setItemResult({ success: true, message: `แลกคูปองสำเร็จ!` });
+      setTimeout(() => setItemResult(null), 2000);
+    } catch (err) {
+      console.error(err);
+      setItemResult({ success: false, message: 'เกิดข้อผิดพลาดในการแลก' });
+      setTimeout(() => setItemResult(null), 3000);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '1rem', position: 'relative' }}>
       
@@ -95,24 +145,35 @@ export default function ShopScreen({ playerId, currentCoins, onUpdateCoins, onBa
         <h2 style={{ fontSize: '1.2rem', textAlign: 'center', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
           <ShoppingBag size={20} /> Tamabi Shop
         </h2>
-        <div style={{ padding: '0.4rem 0.8rem', background: 'rgba(0,0,0,0.3)', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{ color: '#feca57', fontWeight: 'bold' }}>🪙 {currentCoins}</span>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div style={{ padding: '0.4rem 0.8rem', background: 'rgba(0,0,0,0.3)', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ color: '#feca57', fontWeight: 'bold' }}>⭐ {inventory?.star_points || 0}</span>
+          </div>
+          <div style={{ padding: '0.4rem 0.8rem', background: 'rgba(0,0,0,0.3)', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ color: '#ff9f43', fontWeight: 'bold' }}>🪙 {currentCoins}</span>
+          </div>
         </div>
       </header>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
         <button 
           onClick={() => { setActiveTab('items'); setResult(null); }}
-          style={{ flex: 1, padding: '0.8rem', borderRadius: '12px', background: activeTab === 'items' ? 'var(--primary-color)' : 'var(--bg-glass)', color: activeTab === 'items' ? '#fff' : 'var(--text-muted)', border: 'none', fontWeight: 'bold', display: 'flex', justifyContent: 'center', gap: '0.5rem', cursor: 'pointer' }}
+          style={{ flex: 1, padding: '0.6rem', fontSize: '0.8rem', borderRadius: '12px', background: activeTab === 'items' ? 'var(--primary-color)' : 'var(--bg-glass)', color: activeTab === 'items' ? '#fff' : 'var(--text-muted)', border: 'none', fontWeight: 'bold', display: 'flex', justifyContent: 'center', gap: '0.3rem', cursor: 'pointer' }}
         >
-          <PackageOpen size={18} /> ร้านไอเทม
+          <PackageOpen size={16} /> ไอเทม
+        </button>
+        <button 
+          onClick={() => { setActiveTab('coupons'); setResult(null); setItemResult(null); }}
+          style={{ flex: 1, padding: '0.6rem', fontSize: '0.8rem', borderRadius: '12px', background: activeTab === 'coupons' ? '#feca57' : 'var(--bg-glass)', color: activeTab === 'coupons' ? '#000' : 'var(--text-muted)', border: 'none', fontWeight: 'bold', display: 'flex', justifyContent: 'center', gap: '0.3rem', cursor: 'pointer' }}
+        >
+          <Star size={16} /> แลกคูปอง
         </button>
         <button 
           onClick={() => { setActiveTab('gacha'); setItemResult(null); }}
-          style={{ flex: 1, padding: '0.8rem', borderRadius: '12px', background: activeTab === 'gacha' ? '#8a2be2' : 'var(--bg-glass)', color: activeTab === 'gacha' ? '#fff' : 'var(--text-muted)', border: 'none', fontWeight: 'bold', display: 'flex', justifyContent: 'center', gap: '0.5rem', cursor: 'pointer' }}
+          style={{ flex: 1, padding: '0.6rem', fontSize: '0.8rem', borderRadius: '12px', background: activeTab === 'gacha' ? '#8a2be2' : 'var(--bg-glass)', color: activeTab === 'gacha' ? '#fff' : 'var(--text-muted)', border: 'none', fontWeight: 'bold', display: 'flex', justifyContent: 'center', gap: '0.3rem', cursor: 'pointer' }}
         >
-          <Gift size={18} /> ตู้สุ่มกาชา
+          <Gift size={16} /> กาชา
         </button>
       </div>
 
@@ -140,6 +201,28 @@ export default function ShopScreen({ playerId, currentCoins, onUpdateCoins, onBa
                   style={{ width: '100%', padding: '0.5rem', fontSize: '0.9rem', justifyContent: 'center', background: currentCoins >= item.price ? 'var(--primary-color)' : 'var(--bg-glass)' }}
                 >
                   🪙 {item.price}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* COUPONS TAB */}
+        {activeTab === 'coupons' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', paddingBottom: '2rem' }}>
+            {COUPONS.map(c => (
+              <div key={c.id} className="glass-panel" style={{ display: 'flex', alignItems: 'center', padding: '1rem', gap: '1rem' }}>
+                <div style={{ fontSize: '2.5rem' }}>{c.emoji}</div>
+                <div style={{ flex: 1 }}>
+                  <h3 style={{ fontSize: '1rem', marginBottom: '0.2rem' }}>{c.name}</h3>
+                </div>
+                <button 
+                  className="btn" 
+                  onClick={() => handleBuyCoupon(c.id, c.price)}
+                  disabled={(inventory?.star_points || 0) < c.price}
+                  style={{ width: 'auto', padding: '0.5rem 1rem', fontSize: '0.9rem', background: (inventory?.star_points || 0) >= c.price ? '#feca57' : 'var(--bg-glass)', color: (inventory?.star_points || 0) >= c.price ? '#000' : 'white' }}
+                >
+                  ⭐ {c.price}
                 </button>
               </div>
             ))}
