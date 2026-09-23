@@ -8,7 +8,7 @@ import WikiScreen from './components/WikiScreen';
 import AuthScreen from './components/AuthScreen';
 import ShopScreen from './components/ShopScreen';
 import TeamSelectScreen from './components/TeamSelectScreen';
-import QuestScreen from './components/QuestScreen';
+import QuestScreen, { MOCK_QUESTS } from './components/QuestScreen';
 import BossSelectScreen from './components/BossSelectScreen';
 import type { BossDef } from './components/BossSelectScreen';
 import BattleMenuScreen from './components/BattleMenuScreen';
@@ -21,6 +21,7 @@ import type { TraitName } from './engine/petData';
 const COUPONS: Record<string, {name: string, emoji: string, id: string}> = {
   'coupon_33backyard_15': { id: 'coupon_33backyard_15', name: 'The 33 Backyard - ส่วนลด 15%', emoji: '☕' },
   'coupon_secretcafe_cake': { id: 'coupon_secretcafe_cake', name: 'Secret Cafe - ฟรีขนมเค้ก 1 ชิ้น', emoji: '🍰' },
+  'coupon_nomongko_free': { id: 'coupon_nomongko_free', name: 'นมองโก๋ - ฟรีท็อปปิ้ง 1 อย่าง', emoji: '🧋' },
   'coupon_gacha_ticket': { id: 'coupon_gacha_ticket', name: 'ตั๋วสุ่มกาชาพิเศษ 1 ใบ', emoji: '🎟️' }
 };
 
@@ -61,6 +62,8 @@ export default function App() {
   const [selectedPartyIds, setSelectedPartyIds] = useState<string[]>([]);
   const [selectedBoss, setSelectedBoss] = useState<BossDef | null>(null);
   const [readiness, setReadiness] = useState(0);
+  const [targetQuestId, setTargetQuestId] = useState<string | null>(null);
+  const [completedQuests, setCompletedQuests] = useState<string[]>([]);
 
   // Inventory Modal State
   const [inventoryModalOpen, setInventoryModalOpen] = useState(false);
@@ -268,7 +271,43 @@ export default function App() {
   }
 
   if (currentScreen === 'scanner') {
-    return <ScannerScreen playerId={currentUser} onBack={() => setCurrentScreen('home')} />;
+    return (
+      <ScannerScreen 
+        playerId={currentUser} 
+        questTargetId={targetQuestId}
+        onQuestComplete={async (questId) => {
+          setCompletedQuests(prev => [...prev, questId]);
+          
+          const quest = MOCK_QUESTS.find(q => q.id === questId);
+          if (quest && profile) {
+            const rewards = quest.rewards;
+            const currentInv = profile.inventory || {};
+            const newInv = { 
+              ...currentInv, 
+              star_points: (currentInv.star_points || 0) + rewards.starPoints 
+            };
+            const newCoins = profile.pet_coins + rewards.coins;
+
+            // Save to DB
+            const { error: updateErr } = await supabase
+              .from('profiles')
+              .update({ pet_coins: newCoins, inventory: newInv })
+              .eq('id', currentUser);
+
+            if (!updateErr) {
+              setProfile({ ...profile, pet_coins: newCoins, inventory: newInv });
+            }
+          }
+
+          setTargetQuestId(null);
+          setCurrentScreen('quest');
+        }}
+        onBack={() => {
+          setTargetQuestId(null);
+          setCurrentScreen(targetQuestId ? 'quest' : 'home');
+        }} 
+      />
+    );
   }
 
   if (currentScreen === 'wiki') {
@@ -292,7 +331,12 @@ export default function App() {
     return (
       <QuestScreen 
         playerId={currentUser}
+        completedQuests={completedQuests}
         onUpdateStats={(newCoins, newInventory) => setProfile(profile ? { ...profile, pet_coins: newCoins, inventory: newInventory } : null)}
+        onOpenScanner={(questId) => {
+          setTargetQuestId(questId);
+          setCurrentScreen('scanner');
+        }}
         onBack={() => setCurrentScreen('home')}
       />
     );

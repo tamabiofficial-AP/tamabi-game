@@ -8,10 +8,12 @@ import { SPECIES_EMOJI } from '../engine/petData';
 
 interface ScannerScreenProps {
   playerId: string;
+  questTargetId?: string | null;
+  onQuestComplete?: (questId: string) => void;
   onBack: () => void;
 }
 
-export default function ScannerScreen({ playerId, onBack }: ScannerScreenProps) {
+export default function ScannerScreen({ playerId, questTargetId, onQuestComplete, onBack }: ScannerScreenProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<ScanResult | null>(null);
 
@@ -66,7 +68,7 @@ export default function ScannerScreen({ playerId, onBack }: ScannerScreenProps) 
         )}
 
         {/* Scan Result */}
-        {result && result.success && result.pet && (
+        {result && result.success && result.pet && !result.pet.isQuest && (
           <div className="glass-panel" style={{ textAlign: 'center', animation: 'popup 0.5s ease-out' }}>
             <h2 style={{ color: '#feca57', marginBottom: '1rem' }}>🎉 ค้นพบมอนสเตอร์ใหม่!</h2>
             <div className="animate-float" style={{ 
@@ -92,6 +94,33 @@ export default function ScannerScreen({ playerId, onBack }: ScannerScreenProps) 
           </div>
         )}
 
+        {/* Quest Check-in Result */}
+        {result && result.success && result.pet && result.pet.isQuest && (
+          <div className="glass-panel" style={{ textAlign: 'center', animation: 'popup 0.5s ease-out', padding: '2rem' }}>
+            <h2 style={{ color: '#1dd1a1', marginBottom: '1rem' }}>📍 เช็คอินสำเร็จ!</h2>
+            
+            {questTargetId && questTargetId !== result.pet.id ? (
+              <p style={{ color: '#ff6b6b' }}>คุณสแกน QR Code ไม่ตรงกับสถานที่ในเควสที่รับมา!</p>
+            ) : (
+              <p>ระบบยืนยันสถานที่เรียบร้อยแล้ว กดปุ่มด้านล่างเพื่อรับรางวัล</p>
+            )}
+
+            <button 
+              className="btn" 
+              style={{ marginTop: '2rem', width: '100%', justifyContent: 'center' }} 
+              onClick={() => {
+                if (questTargetId && questTargetId !== result.pet.id) {
+                  setResult(null);
+                } else {
+                  if (onQuestComplete) onQuestComplete(result.pet.id);
+                }
+              }}
+            >
+              {questTargetId && questTargetId !== result.pet.id ? 'ลองสแกนใหม่' : 'รับรางวัลเควส'}
+            </button>
+          </div>
+        )}
+
         {result && !result.success && (
           <div className="glass-panel" style={{ textAlign: 'center' }}>
             <h2 style={{ color: '#ff6b6b', marginBottom: '1rem' }}>❌ ข้อผิดพลาด</h2>
@@ -108,7 +137,7 @@ export default function ScannerScreen({ playerId, onBack }: ScannerScreenProps) 
       {!result && (
         <div style={{ padding: '2rem 1rem', textAlign: 'center' }}>
           <p style={{ marginBottom: '1.5rem', color: 'var(--text-muted)' }}>
-            {isProcessing ? 'โปรดรอสักครู่...' : 'หันกล้องไปที่ QR Code ของเกม Tamabi เพื่อรับมอนสเตอร์!'}
+            {isProcessing ? 'โปรดรอสักครู่...' : questTargetId ? 'กรุณาสแกน QR Code ประจำร้านเพื่อเช็คอิน!' : 'หันกล้องไปที่ QR Code ของเกม Tamabi เพื่อรับมอนสเตอร์!'}
           </p>
         </div>
       )}

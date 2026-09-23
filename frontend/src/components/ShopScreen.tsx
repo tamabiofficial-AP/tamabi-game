@@ -89,6 +89,7 @@ export default function ShopScreen({ playerId, currentCoins, inventory, onUpdate
   const COUPONS = [
     { id: 'coupon_33backyard_15', name: 'The 33 Backyard - ส่วนลด 15%', emoji: '☕', price: 100 },
     { id: 'coupon_secretcafe_cake', name: 'Secret Cafe - ฟรีขนมเค้ก 1 ชิ้น', emoji: '🍰', price: 250 },
+    { id: 'coupon_nomongko_free', name: 'นมองโก๋ - ฟรีท็อปปิ้ง 1 อย่าง', emoji: '🧋', price: 150 },
     { id: 'coupon_gacha_ticket', name: 'ตั๋วสุ่มกาชาพิเศษ 1 ใบ', emoji: '🎟️', price: 50 }
   ];
 

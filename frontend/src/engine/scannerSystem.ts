@@ -9,12 +9,23 @@ export interface ScanResult {
 
 export async function processScanResult(qrCodeData: string, playerId: string): Promise<ScanResult> {
   try {
-    // Validate the qrCodeData
     if (!qrCodeData || !qrCodeData.toUpperCase().includes('TAMABI')) {
-      return { success: false, message: 'QR Code นี้ไม่สามารถใช้สแกนหามอนสเตอร์ได้' };
+      return { success: false, message: 'QR Code นี้ไม่สามารถใช้สแกนในเกมนี้ได้' };
     }
     
-    // Fetch all available species
+    // 1. Handle Quest QR Codes (e.g. TAMABI_QUEST_q_cafe_33)
+    if (qrCodeData.startsWith('TAMABI_QUEST_')) {
+      // The Quest UI will handle the reward giving, here we just return success
+      // and the quest ID for the UI to process
+      const questId = qrCodeData.replace('TAMABI_QUEST_', '');
+      return {
+        success: true,
+        message: 'QUEST_COMPLETED',
+        pet: { id: questId, isQuest: true } // Hacky way to pass questId
+      };
+    }
+
+    // 2. Handle Catch Pet QR Codes (e.g. TAMABI_CATCH_RANDOM)
     const { data: speciesList, error: speciesErr } = await supabase
       .from('species_base_stats')
       .select('*');
@@ -24,20 +35,19 @@ export async function processScanResult(qrCodeData: string, playerId: string): P
       return { success: false, message: 'ไม่พบข้อมูลสายพันธุ์ในระบบ' };
     }
 
-    // Randomly select one species
     const randomSpecies = speciesList[Math.floor(Math.random() * speciesList.length)];
-
-    // 2. Mint (Insert) new pet into the database
     const trait = getRandomTrait();
     const newPetData = {
       owner_id: playerId,
       species_id: randomSpecies.id,
       name: `${randomSpecies.name}`,
       trait: trait,
-      happiness: 50, // newly caught pets are neutral
+      happiness: 50,
       hunger: 50,
       health: 100,
       energy: 100,
+      level: 1,
+      battle_exp: 0
     };
 
     const { data: insertedPet, error: insertErr } = await supabase
