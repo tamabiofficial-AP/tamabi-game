@@ -97,7 +97,11 @@ export default function ScannerScreen({ playerId, questTargetId, onQuestComplete
         {/* Quest Check-in Result */}
         {result && result.success && result.pet && result.pet.isQuest && (
           <div className="glass-panel" style={{ textAlign: 'center', animation: 'popup 0.5s ease-out', padding: '2rem' }}>
-            <h2 style={{ color: '#1dd1a1', marginBottom: '1rem' }}>📍 เช็คอินสำเร็จ!</h2>
+            {questTargetId && questTargetId !== result.pet.id ? (
+              <h2 style={{ color: '#ff6b6b', marginBottom: '1rem' }}>❌ เช็คอินไม่สำเร็จ!</h2>
+            ) : (
+              <h2 style={{ color: '#1dd1a1', marginBottom: '1rem' }}>📍 เช็คอินสำเร็จ!</h2>
+            )}
             
             {questTargetId && questTargetId !== result.pet.id ? (
               <p style={{ color: '#ff6b6b' }}>คุณสแกน QR Code ไม่ตรงกับสถานที่ในเควสที่รับมา!</p>
