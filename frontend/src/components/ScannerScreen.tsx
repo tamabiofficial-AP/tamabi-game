@@ -22,7 +22,7 @@ export default function ScannerScreen({ playerId, questTargetId, onQuestComplete
       const qrData = detectedCodes[0].rawValue;
       setIsProcessing(true);
       
-      const scanRes = await processScanResult(qrData, playerId);
+      const scanRes = await processScanResult(qrData, playerId, !!questTargetId);
       setResult(scanRes);
       setIsProcessing(false);
     }
