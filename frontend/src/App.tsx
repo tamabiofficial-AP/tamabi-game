@@ -15,7 +15,7 @@ import BattleMenuScreen from './components/BattleMenuScreen';
 import PvPArenaScreen from './components/PvPArenaScreen';
 import { ITEMS } from './engine/itemSystem';
 
-import { SPECIES_EMOJI, TRAITS } from './engine/petData';
+import { SPECIES_EMOJI, SPECIES_IMAGES, TRAITS } from './engine/petData';
 import type { TraitName } from './engine/petData';
 
 const COUPONS: Record<string, {name: string, emoji: string, id: string}> = {
@@ -455,14 +455,20 @@ export default function App() {
           </button>
           
           <div className="animate-float" style={{ 
-            width: '150px', height: '150px', 
+            width: '180px', height: '180px', 
             background: 'var(--bg-main)', 
             borderRadius: '50%', 
-            border: '2px solid var(--stat-happiness)',
+            border: '3px solid var(--stat-happiness)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 0 20px rgba(255, 107, 107, 0.3)',
+            boxShadow: '0 0 30px rgba(255, 107, 107, 0.4)',
+            overflow: 'hidden',
+            padding: '10px'
           }}>
-            <span style={{ fontSize: '4rem' }}>{emoji}</span>
+            <img 
+              src={SPECIES_IMAGES[speciesName] || '/assets/pets/dragon.jpg'} 
+              alt={speciesName}
+              style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '50%' }}
+            />
           </div>
 
           <button 

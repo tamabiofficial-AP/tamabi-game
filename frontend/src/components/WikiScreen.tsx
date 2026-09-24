@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronLeft, Book, ShieldAlert } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
-import { SPECIES_EMOJI, TRAITS } from '../engine/petData';
+import { SPECIES_EMOJI, SPECIES_IMAGES, TRAITS } from '../engine/petData';
 import { makeSkills } from '../engine/battleEngine';
 
 const SPECIES_RANGED = ['Eagle', 'Bat'];
@@ -135,12 +135,18 @@ export default function WikiScreen({ playerPets, onBack }: WikiScreenProps) {
 
                 {/* Avatar */}
                 <div style={{ 
-                  fontSize: '3rem', 
+                  width: '80px', height: '80px',
                   marginBottom: '0.5rem',
                   filter: isUnlocked ? 'none' : 'grayscale(100%) brightness(0.2)',
-                  transition: 'all 0.3s'
+                  transition: 'all 0.3s',
+                  borderRadius: '50%',
+                  overflow: 'hidden'
                 }}>
-                  {emoji}
+                  <img 
+                    src={SPECIES_IMAGES[species.name] || '/assets/pets/dragon.jpg'} 
+                    alt={species.name}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
                 </div>
 
                 {/* Info */}

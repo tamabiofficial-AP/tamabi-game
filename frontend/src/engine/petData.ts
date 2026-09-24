@@ -13,6 +13,21 @@ export const SPECIES_EMOJI: Record<string, string> = {
   Snake: '🐍', Spider: '🕷️', Panther: '🐆', Crow: '🐦‍⬛'
 };
 
+export const SPECIES_IMAGES: Record<string, string> = {
+  // Fire
+  Dragon: '/assets/pets/dragon.jpg', Phoenix: '/assets/pets/phoenix.jpg', Fox: '/assets/pets/fox.jpg', Lion: '/assets/pets/lion.jpg',
+  // Water
+  Turtle: '/assets/pets/turtle.jpg', Shark: '/assets/pets/shark.jpg', Penguin: '/assets/pets/penguin.jpg', Dolphin: '/assets/pets/dolphin.jpg',
+  // Earth
+  Bear: '/assets/pets/bear.jpg', Golem: '/assets/pets/golem.jpg', Rhino: '/assets/pets/rhino.jpg', Mole: '/assets/pets/mole.jpg',
+  // Wind
+  Eagle: '/assets/pets/eagle.jpg', Falcon: '/assets/pets/falcon.jpg', Bat: '/assets/pets/bat.jpg', Butterfly: '/assets/pets/butterfly.jpg',
+  // Light
+  Unicorn: '/assets/pets/unicorn.jpg', Owl: '/assets/pets/owl.jpg', Pegasus: '/assets/pets/pegasus.jpg', Swan: '/assets/pets/swan.jpg',
+  // Dark
+  Snake: '/assets/pets/snake.jpg', Spider: '/assets/pets/spider.jpg', Panther: '/assets/pets/panther.jpg', Crow: '/assets/pets/crow.jpg'
+};
+
 export type TraitName = 'Normal' | 'Brave' | 'Lazy' | 'Gluttonous' | 'Energetic' | 'Smart';
 
 export interface TraitDef {

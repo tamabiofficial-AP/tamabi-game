@@ -6,6 +6,7 @@
 export interface PetUnit {
   id: string;
   name: string;
+  species: string;
   emoji: string;
   element: 'fire' | 'water' | 'earth' | 'nature' | 'light' | 'dark';
   team: 'player' | 'enemy';
@@ -358,13 +359,13 @@ export function makeSkills(element: string, isRanged: boolean = false, bond: num
 export function createMockUnits(): PetUnit[] {
   return [
     // Player Team
-    { id: 'p1', name: 'Ignis', emoji: '🐉', element: 'fire', team: 'player', hp: 500, maxHp: 500, atk: 120, def: 60, spd: 85, skills: makeSkills('fire', false), cooldowns: {}, statusEffects: [], row: 3, col: 1, hasMoved: false, hasActed: false, isDead: false },
-    { id: 'p2', name: 'Gale', emoji: '🦅', element: 'nature', team: 'player', hp: 380, maxHp: 380, atk: 100, def: 40, spd: 110, skills: makeSkills('nature', true), cooldowns: {}, statusEffects: [], row: 4, col: 0, hasMoved: false, hasActed: false, isDead: false },
-    { id: 'p3', name: 'Terra', emoji: '🐢', element: 'earth', team: 'player', hp: 700, maxHp: 700, atk: 70, def: 100, spd: 50, skills: makeSkills('earth', false), cooldowns: {}, statusEffects: [], row: 4, col: 2, hasMoved: false, hasActed: false, isDead: false },
+    { id: 'p1', name: 'Ignis', species: 'Dragon', emoji: '🐉', element: 'fire', team: 'player', hp: 500, maxHp: 500, atk: 120, def: 60, spd: 85, skills: makeSkills('fire', false), cooldowns: {}, statusEffects: [], row: 3, col: 1, hasMoved: false, hasActed: false, isDead: false },
+    { id: 'p2', name: 'Gale', species: 'Eagle', emoji: '🦅', element: 'nature', team: 'player', hp: 380, maxHp: 380, atk: 100, def: 40, spd: 110, skills: makeSkills('nature', true), cooldowns: {}, statusEffects: [], row: 4, col: 0, hasMoved: false, hasActed: false, isDead: false },
+    { id: 'p3', name: 'Terra', species: 'Turtle', emoji: '🐢', element: 'earth', team: 'player', hp: 700, maxHp: 700, atk: 70, def: 100, spd: 50, skills: makeSkills('earth', false), cooldowns: {}, statusEffects: [], row: 4, col: 2, hasMoved: false, hasActed: false, isDead: false },
 
     // Enemy Team
-    { id: 'e1', name: 'Venom', emoji: '🐍', element: 'nature', team: 'enemy', hp: 420, maxHp: 420, atk: 110, def: 50, spd: 95, skills: makeSkills('nature', false), cooldowns: {}, statusEffects: [], row: 0, col: 0, hasMoved: false, hasActed: false, isDead: false },
-    { id: 'e2', name: 'Shadow', emoji: '🦇', element: 'dark', team: 'enemy', hp: 350, maxHp: 350, atk: 130, def: 35, spd: 120, skills: makeSkills('dark', true), cooldowns: {}, statusEffects: [], row: 0, col: 2, hasMoved: false, hasActed: false, isDead: false },
-    { id: 'e3', name: 'Fenrir', emoji: '🐺', element: 'water', team: 'enemy', hp: 550, maxHp: 550, atk: 90, def: 80, spd: 70, skills: makeSkills('water', false), cooldowns: {}, statusEffects: [], row: 1, col: 1, hasMoved: false, hasActed: false, isDead: false },
+    { id: 'e1', name: 'Venom', species: 'Snake', emoji: '🐍', element: 'nature', team: 'enemy', hp: 420, maxHp: 420, atk: 110, def: 50, spd: 95, skills: makeSkills('nature', false), cooldowns: {}, statusEffects: [], row: 0, col: 0, hasMoved: false, hasActed: false, isDead: false },
+    { id: 'e2', name: 'Shadow', species: 'Bat', emoji: '🦇', element: 'dark', team: 'enemy', hp: 350, maxHp: 350, atk: 130, def: 35, spd: 120, skills: makeSkills('dark', true), cooldowns: {}, statusEffects: [], row: 0, col: 2, hasMoved: false, hasActed: false, isDead: false },
+    { id: 'e3', name: 'Fenrir', species: 'Wolf', emoji: '🐺', element: 'water', team: 'enemy', hp: 550, maxHp: 550, atk: 90, def: 80, spd: 70, skills: makeSkills('water', false), cooldowns: {}, statusEffects: [], row: 1, col: 1, hasMoved: false, hasActed: false, isDead: false },
   ];
 }

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronLeft, Play, ShieldAlert, CheckCircle2 } from 'lucide-react';
 
-import { SPECIES_EMOJI, TRAITS } from '../engine/petData';
+import { SPECIES_EMOJI, SPECIES_IMAGES, TRAITS } from '../engine/petData';
 import type { TraitName } from '../engine/petData';
 
 const ELEMENT_COLORS: Record<string, string> = {
@@ -105,8 +105,12 @@ export default function TeamSelectScreen({ playerPets, onStartBattle, onBack, bo
                 </div>
               )}
 
-              <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>
-                {emoji}
+              <div style={{ width: '80px', height: '80px', marginBottom: '0.5rem', borderRadius: '50%', overflow: 'hidden' }}>
+                <img 
+                  src={SPECIES_IMAGES[pet.species_base_stats?.name] || '/assets/pets/dragon.jpg'} 
+                  alt={pet.species_base_stats?.name}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
               </div>
 
               <h4 style={{ margin: 0, fontSize: '1rem' }}>{pet.name}</h4>

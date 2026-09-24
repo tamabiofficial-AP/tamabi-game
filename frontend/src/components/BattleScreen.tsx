@@ -25,9 +25,16 @@ const ELEMENT_COLORS: Record<string, string> = {
 // Hardcoded Prototype IDs
 const ENEMY_ID = '11111111-1111-1111-1111-111111111111';
 
-import { SPECIES_EMOJI, TRAITS } from '../engine/petData';
+import { SPECIES_EMOJI, SPECIES_IMAGES, TRAITS } from '../engine/petData';
 import type { TraitName } from '../engine/petData';
 const SPECIES_RANGED = ['Eagle', 'Bat'];
+
+const getBackgroundForMode = (mode: string) => {
+  if (mode === 'pve') return '/assets/bg_forest.jpg';
+  if (mode === 'boss') return '/assets/bg_volcano.jpg';
+  if (mode === 'pvp') return '/assets/bg_arena.jpg';
+  return '/assets/bg_island.jpg';
+};
 
 interface BattleScreenProps {
   playerId: string;
@@ -124,6 +131,7 @@ export default function BattleScreen({ playerId, activePetIds, bossData, mode = 
           return {
             id: pet.id,
             name: pet.name,
+            species: s.name,
             emoji: SPECIES_EMOJI[s.name] || '❓',
             element: s.element,
             team: isPlayer ? 'player' : 'enemy',
@@ -146,6 +154,7 @@ export default function BattleScreen({ playerId, activePetIds, bossData, mode = 
           fetchedUnits.push({
             id: bossData.id,
             name: bossData.name,
+            species: 'Dragon', // Fallback for Boss
             emoji: bossData.emoji,
             element: bossData.element,
             team: 'enemy',
@@ -613,7 +622,17 @@ export default function BattleScreen({ playerId, activePetIds, bossData, mode = 
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '0.5rem' }}>
+    <div style={{ 
+      display: 'flex', flexDirection: 'column', height: '100%', gap: '0.5rem',
+      backgroundImage: `url('${getBackgroundForMode(mode)}')`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundAttachment: 'fixed',
+      position: 'relative'
+    }}>
+      {/* Overlay for text readability */}
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.7))', zIndex: 0 }} />
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', zIndex: 1, position: 'relative', gap: '0.5rem' }}>
       {/* Header */}
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <button className="btn-icon" onClick={onBack} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'white' }}>
@@ -655,11 +674,16 @@ export default function BattleScreen({ playerId, activePetIds, bossData, mode = 
               border: `2px solid ${i === currentTurnIdx ? 'var(--accent-color)' : ELEMENT_COLORS[u.element]}`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: '1rem', transition: 'all 0.3s',
-              transform: i === currentTurnIdx ? 'scale(1.2)' : 'scale(1)',
-            }}>
-              {u.emoji}
-            </div>
-          );
+                transform: i === currentTurnIdx ? 'scale(1.2)' : 'scale(1)',
+                overflow: 'hidden'
+              }}>
+                <img 
+                  src={SPECIES_IMAGES[u.species] || '/assets/pets/dragon.jpg'} 
+                  alt={u.species}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              </div>
+            );
         })}
       </div>
 
@@ -712,7 +736,13 @@ export default function BattleScreen({ playerId, activePetIds, bossData, mode = 
                           unit.element === 'dark' ? '🌑' : '⚡'
                         }
                       </span>
-                      <span className="pet-token">{unit.emoji}</span>
+                      <div className="pet-token" style={{ overflow: 'hidden', borderRadius: '50%', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <img 
+                          src={SPECIES_IMAGES[unit.species] || '/assets/pets/dragon.jpg'} 
+                          alt={unit.species}
+                          style={{ width: '90%', height: '90%', objectFit: 'cover', borderRadius: '50%' }}
+                        />
+                      </div>
                       <div className="hp-bar-mini" style={{ position: 'relative' }}>
                         <div
                           className={`hp-bar-fill ${(unit.hp / unit.maxHp) < 0.3 ? 'danger' : ''}`}
@@ -860,6 +890,7 @@ export default function BattleScreen({ playerId, activePetIds, bossData, mode = 
           </span>
         </div>
       )}
+    </div>
     </div>
   );
 }

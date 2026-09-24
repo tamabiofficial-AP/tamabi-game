@@ -5,7 +5,7 @@ import type { GachaResult } from '../engine/gachaSystem';
 import { ITEMS } from '../engine/itemSystem';
 import { supabase } from '../lib/supabaseClient';
 
-import { SPECIES_EMOJI } from '../engine/petData';
+import { SPECIES_EMOJI, SPECIES_IMAGES } from '../engine/petData';
 
 const GACHA_COST = 500;
 
@@ -274,9 +274,13 @@ export default function ShopScreen({ playerId, currentCoins, inventory, onUpdate
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   boxShadow: '0 0 30px rgba(254, 202, 87, 0.5)',
                   border: '2px solid #feca57',
-                  fontSize: '4rem'
+                  overflow: 'hidden'
                 }}>
-                  {SPECIES_EMOJI[result.pet.species_base_stats.name] || '❓'}
+                  <img 
+                    src={SPECIES_IMAGES[result.pet.species_base_stats.name] || '/assets/pets/dragon.jpg'} 
+                    alt={result.pet.species_base_stats.name}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
                 </div>
                 <h3>{result.pet.name}</h3>
                 <p style={{ textTransform: 'capitalize', color: 'var(--text-muted)' }}>{result.pet.species_base_stats.element} Element</p>

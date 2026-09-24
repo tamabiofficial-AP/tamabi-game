@@ -4,7 +4,7 @@ import { processScanResult } from '../engine/scannerSystem';
 import type { ScanResult } from '../engine/scannerSystem';
 import { Scanner } from '@yudiel/react-qr-scanner';
 
-import { SPECIES_EMOJI } from '../engine/petData';
+import { SPECIES_EMOJI, SPECIES_IMAGES } from '../engine/petData';
 
 interface ScannerScreenProps {
   playerId: string;
@@ -78,9 +78,13 @@ export default function ScannerScreen({ playerId, questTargetId, onQuestComplete
               margin: '0 auto 1rem',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               boxShadow: '0 0 20px rgba(255, 202, 87, 0.4)',
-              fontSize: '4rem'
+              overflow: 'hidden'
             }}>
-              {SPECIES_EMOJI[result.pet.species_base_stats.name] || '❓'}
+              <img 
+                src={SPECIES_IMAGES[result.pet.species_base_stats.name] || '/assets/pets/dragon.jpg'} 
+                alt={result.pet.species_base_stats.name}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
             </div>
             <h3>{result.pet.name}</h3>
             <p style={{ textTransform: 'capitalize', color: 'var(--text-muted)' }}>{result.pet.species_base_stats.element} Element</p>
