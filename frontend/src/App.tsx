@@ -13,6 +13,8 @@ import BossSelectScreen from './components/BossSelectScreen';
 import type { BossDef } from './components/BossSelectScreen';
 import BattleMenuScreen from './components/BattleMenuScreen';
 import PvPArenaScreen from './components/PvPArenaScreen';
+import OnlinePvPLobbyScreen from './components/OnlinePvPLobbyScreen';
+import OnlineBattleScreen from './components/OnlineBattleScreen';
 import { ITEMS } from './engine/itemSystem';
 
 import { SPECIES_EMOJI, SPECIES_IMAGES, TRAITS } from './engine/petData';
@@ -49,8 +51,8 @@ const StatBar = ({ label, value, colorVar, icon: Icon }: any) => (
 );
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<'home' | 'battle' | 'team_setup' | 'scanner' | 'wiki' | 'shop' | 'quest' | 'boss_select' | 'battle_menu' | 'pvp_arena'>('home');
-  const [battleMode, setBattleMode] = useState<'pve' | 'boss' | 'pvp'>('pve');
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'battle' | 'team_setup' | 'scanner' | 'wiki' | 'shop' | 'quest' | 'boss_select' | 'battle_menu' | 'pvp_arena' | 'pvp_online_lobby' | 'online_battle'>('home');
+  const [battleMode, setBattleMode] = useState<'pve' | 'boss' | 'pvp' | 'pvp_online'>('pve');
   const [isLoading, setIsLoading] = useState(true);
   
   // Auth State
@@ -64,6 +66,13 @@ export default function App() {
   const [readiness, setReadiness] = useState(0);
   const [targetQuestId, setTargetQuestId] = useState<string | null>(null);
   const [completedQuests, setCompletedQuests] = useState<string[]>([]);
+
+  // Online PvP State
+  const [onlineHost, setOnlineHost] = useState(false);
+  const [onlineOpponentId, setOnlineOpponentId] = useState('');
+  const [onlineOpponentPets, setOnlineOpponentPets] = useState<string[]>([]);
+  const [onlineChannel, setOnlineChannel] = useState<any>(null);
+  const [onlinePin, setOnlinePin] = useState('');
 
   // Inventory Modal State
   const [inventoryModalOpen, setInventoryModalOpen] = useState(false);
@@ -203,6 +212,8 @@ export default function App() {
             setCurrentScreen('boss_select');
           } else if (mode === 'pvp') {
             setCurrentScreen('pvp_arena');
+          } else if (mode === 'pvp_online') {
+            setCurrentScreen('team_setup');
           }
         }}
         onBack={() => setCurrentScreen('home')}
@@ -245,8 +256,47 @@ export default function App() {
         bossMode={!!selectedBoss}
         onStartBattle={(selectedIds) => {
           setSelectedPartyIds(selectedIds);
-          setCurrentScreen('battle');
+          if (battleMode === 'pvp_online') {
+            setCurrentScreen('pvp_online_lobby');
+          } else {
+            setCurrentScreen('battle');
+          }
         }} 
+      />
+    );
+  }
+
+  if (currentScreen === 'pvp_online_lobby') {
+    return (
+      <OnlinePvPLobbyScreen
+        playerId={currentUser!}
+        activePetIds={selectedPartyIds}
+        onBack={() => setCurrentScreen('team_setup')}
+        onStartBattle={(pin, isHost, opponentId, opponentActivePetIds, channel) => {
+          setOnlinePin(pin);
+          setOnlineHost(isHost);
+          setOnlineOpponentId(opponentId);
+          setOnlineOpponentPets(opponentActivePetIds);
+          setOnlineChannel(channel);
+          setCurrentScreen('online_battle');
+        }}
+      />
+    );
+  }
+
+  if (currentScreen === 'online_battle') {
+    return (
+      <OnlineBattleScreen
+        playerId={currentUser!}
+        activePetIds={selectedPartyIds}
+        opponentId={onlineOpponentId}
+        opponentActivePetIds={onlineOpponentPets}
+        roomChannel={onlineChannel}
+        isHost={onlineHost}
+        onBack={() => {
+          if (onlineChannel) supabase.removeChannel(onlineChannel);
+          setCurrentScreen('home');
+        }}
       />
     );
   }
