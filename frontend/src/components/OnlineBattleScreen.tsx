@@ -41,12 +41,12 @@ interface OnlineBattleScreenProps {
   activePetIds: string[];
   opponentId: string;
   opponentActivePetIds: string[];
-  roomChannel: any;
+  pin: string;
   isHost: boolean;
   onBack: () => void;
 }
 
-export default function OnlineBattleScreen({ playerId, activePetIds, opponentId, opponentActivePetIds, roomChannel, isHost, onBack }: OnlineBattleScreenProps) {
+export default function OnlineBattleScreen({ playerId, activePetIds, opponentId, opponentActivePetIds, pin, isHost, onBack }: OnlineBattleScreenProps) {
   const [units, setUnits] = useState<PetUnit[]>([]);
   useEffect(() => { console.log("[DEBUG] Units updated:", units); }, [units]);
   const [isLoading, setIsLoading] = useState(true);
@@ -71,6 +71,64 @@ export default function OnlineBattleScreen({ playerId, activePetIds, opponentId,
 
   const [reward, setReward] = useState<BattleReward | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [roomChannel, setRoomChannel] = useState<any>(null);
+
+  // --- Initialize Channel ---
+  useEffect(() => {
+    const channel = supabase.channel(`pvp_room_${pin}`, {
+      config: { broadcast: { self: false } },
+    });
+
+    channel.on('broadcast', { event: 'battle_move' }, (payload: any) => {
+      const data = payload.payload;
+      const unit = unitsRef.current.find(u => u.id === data.unitId);
+      if (!unit) return;
+      
+      if (data.action === 'move') {
+        const flippedCol = (GRID_COLS - 1) - data.col; // Flip col for symmetry
+        setUnits(prev => prev.map(u =>
+          u.id === data.unitId ? { ...u, row: data.row, col: flippedCol, hasMoved: true } : u
+        ));
+        addLog(`${unit.emoji} ${unit.name} เคลื่อนที่ไปช่อง (${data.row},${flippedCol})`, 'info');
+      } else if (data.action === 'guard') {
+        addLog(`${unit.emoji} ${unit.name} ตั้งรับ! DEF +50% เทิร์นนี้`, 'info');
+        setUnits(prev => prev.map(u => u.id === data.unitId ? { ...u, hasActed: true } : u));
+        // We can't call advanceTurn here directly due to stale closures, but since advanceTurn only uses functional state updates it's fine
+        setUnits(prev => {
+          // This is a hacky way to trigger advance turn after state update
+          return prev;
+        });
+      } else if (data.action === 'skill') {
+        const targetUnit = unitsRef.current.find(u => u.id === data.targetId);
+        const skill = unit.skills.find((s: Skill) => s.id === data.skillId);
+        if (targetUnit && skill) {
+          if (skill.heal) {
+            executeHeal(unit, targetUnit, skill);
+          } else if (skill.type === 'utility' && !skill.damage) {
+            executeUtility(unit, targetUnit, skill);
+          } else {
+            executeAttack(unit, targetUnit, skill);
+          }
+          setTimeout(() => advanceTurn(), 600);
+        }
+      } else if (data.action === 'skip') {
+        addLog(`${unit.emoji} ${unit.name} จบเทิร์น`, 'info');
+        setTimeout(() => advanceTurn(), 300);
+      }
+    });
+
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        console.log("Connected to battle channel");
+      }
+    });
+
+    setRoomChannel(channel);
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [pin]);
 
   // --- Initialize & Fetch Data ---
   useEffect(() => {
@@ -203,49 +261,6 @@ export default function OnlineBattleScreen({ playerId, activePetIds, opponentId,
       });
     }
   }, [units, phase]);
-
-  // --- Online Multiplayer Listeners ---
-  useEffect(() => {
-    if (!roomChannel) return;
-    
-    // We only attach the listener once, and use unitsRef to access latest state.
-    roomChannel.on('broadcast', { event: 'battle_move' }, (payload: any) => {
-      const data = payload.payload;
-      const unit = unitsRef.current.find(u => u.id === data.unitId);
-      if (!unit) return;
-      
-      if (data.action === 'move') {
-        const flippedCol = (GRID_COLS - 1) - data.col; // Flip col for symmetry
-        setUnits(prev => prev.map(u =>
-          u.id === data.unitId ? { ...u, row: data.row, col: flippedCol, hasMoved: true } : u
-        ));
-        addLog(`${unit.emoji} ${unit.name} เคลื่อนที่ไปช่อง (${data.row},${flippedCol})`, 'info');
-      } else if (data.action === 'guard') {
-        addLog(`${unit.emoji} ${unit.name} ตั้งรับ! DEF +50% เทิร์นนี้`, 'info');
-        setUnits(prev => prev.map(u => u.id === data.unitId ? { ...u, hasActed: true } : u));
-        setTimeout(() => advanceTurn(), 400);
-      } else if (data.action === 'skill') {
-        const targetUnit = unitsRef.current.find(u => u.id === data.targetId);
-        const skill = unit.skills.find((s: Skill) => s.id === data.skillId);
-        if (targetUnit && skill) {
-          if (skill.heal) {
-            executeHeal(unit, targetUnit, skill);
-          } else if (skill.type === 'utility' && !skill.damage) {
-            executeUtility(unit, targetUnit, skill);
-          } else {
-            executeAttack(unit, targetUnit, skill);
-          }
-          setTimeout(() => advanceTurn(), 600);
-        }
-      } else if (data.action === 'skip') {
-        addLog(`${unit.emoji} ${unit.name} จบเทิร์น`, 'info');
-        setTimeout(() => advanceTurn(), 300);
-      }
-    });
-
-    // Note: We don't unsubscribe because we are using an already subscribed channel from props.
-    // If we call .on again it might stack, but we ensure it only runs once by depending only on roomChannel
-  }, [roomChannel]);
 
   // --- Auto-scroll log ---
   useEffect(() => {

@@ -291,7 +291,7 @@ export default function App() {
         activePetIds={selectedPartyIds}
         opponentId={onlineOpponentId}
         opponentActivePetIds={onlineOpponentPets}
-        roomChannel={onlineChannel}
+        pin={onlinePin}
         isHost={onlineHost}
         onBack={() => {
           if (onlineChannel) supabase.removeChannel(onlineChannel);

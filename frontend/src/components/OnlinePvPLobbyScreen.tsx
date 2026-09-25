@@ -85,7 +85,7 @@ export default function OnlinePvPLobbyScreen({ playerId, onBack, onStartBattle, 
         // Add a slight delay before transitioning
         setTimeout(() => {
           onStartBattle(inputPin, false, payload.payload.playerId, payload.payload.activePetIds, newChannel);
-        }, 1000);
+        }, 1500);
       })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
