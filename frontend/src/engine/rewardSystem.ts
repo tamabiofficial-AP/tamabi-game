@@ -17,7 +17,7 @@ export async function processBattleResult(
   playerId: string,
   playerUnits: PetUnit[],
   customRewards?: { coins?: number; starPoints?: number; couponId?: string },
-  mode: 'pve' | 'boss' | 'pvp' = 'pve'
+  mode: 'pve' | 'boss' | 'pvp' | 'pvp_online' = 'pve'
 ): Promise<BattleReward | null> {
   try {
     // 1. Calculate Rewards & Costs

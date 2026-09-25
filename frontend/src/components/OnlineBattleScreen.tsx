@@ -587,24 +587,24 @@ export default function OnlineBattleScreen({ playerId, activePetIds, opponentId,
             {true ? (
               <>
                 <p style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.5rem', color: phase === 'victory' ? '#feca57' : '#ff6b6b' }}>
-                  🏆 Rating: {reward.eloChange! > 0 ? '+' : ''}{reward.eloChange} (รวม: {reward.newElo})
+                  🏆 Rating: {reward?.eloChange! > 0 ? '+' : ''}{reward?.eloChange} (รวม: {reward?.newElo})
                 </p>
                 <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#1dd1a1' }}>
-                  ⭐ +{reward.expGained} Battle EXP
+                  ⭐ +{reward?.expGained} Battle EXP
                 </p>
               </>
             ) : (
               <>
-                <p style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>🪙 +{reward.coins} Pet Coins</p>
-                {reward.expGained && <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#1dd1a1' }}>⭐ +{reward.expGained} Battle EXP</p>}
-                {reward.starPoints && <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#feca57' }}>⭐ +{reward.starPoints} Star Points</p>}
-                {reward.couponId && <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#ff9f43' }}>🎟️ ได้รับคูปองพิเศษ!</p>}
+                <p style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>🪙 +{reward?.coins} Pet Coins</p>
+                {reward?.expGained && <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#1dd1a1' }}>⭐ +{reward?.expGained} Battle EXP</p>}
+                {reward?.starPoints && <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#feca57' }}>⭐ +{reward?.starPoints} Star Points</p>}
+                {reward?.couponId && <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#ff9f43' }}>🎟️ ได้รับคูปองพิเศษ!</p>}
               </>
             )}
             <hr style={{ margin: '1.5rem 0', opacity: 0.2 }} />
             <h3 style={{ marginBottom: '1rem', color: '#ff6b6b' }}>สถานะสัตว์เลี้ยงที่เสียไป</h3>
-            <p>⚡ Energy: -{reward.energyCost}</p>
-            <p>💖 Happiness: -{reward.happinessCost}</p>
+            <p>⚡ Energy: -{reward?.energyCost}</p>
+            <p>💖 Happiness: -{reward?.happinessCost}</p>
           </div>
         ) : (
           <p style={{ color: '#ff6b6b', margin: '2rem 0' }}>❌ บันทึกผลการต่อสู้ล้มเหลว</p>
