@@ -153,29 +153,6 @@ export default function OnlineBattleScreen({ playerId, activePetIds, opponentId,
           };
         });
 
-        if (bossData) {
-          fetchedUnits.push({
-            id: bossData.id,
-            name: bossData.name,
-            species: 'Dragon', // Fallback for Boss
-            emoji: bossData.emoji,
-            element: bossData.element,
-            team: 'enemy',
-            maxHp: bossData.hp,
-            hp: bossData.hp,
-            atk: 35,
-            def: 15,
-            spd: 12,
-            skills: makeSkills(bossData.element, false, 100),
-            cooldowns: {},
-            statusEffects: [],
-            row: 2, col: 3,
-            hasMoved: false,
-            hasActed: false,
-            isDead: false
-          });
-        }
-
         setUnits(fetchedUnits);
         
         // Initialize turn order
@@ -220,8 +197,7 @@ export default function OnlineBattleScreen({ playerId, activePetIds, opponentId,
       // Save results to Supabase
       setIsSaving(true);
       const playerUnits = units.filter(u => u.team === 'player');
-      const customRewards = bossData?.rewards;
-      processBattleResult(endResult, playerId, playerUnits, customRewards, mode).then(res => {
+      processBattleResult(endResult, playerId, playerUnits, undefined, 'pvp_online').then(res => {
         if (res) setReward(res);
         setIsSaving(false);
       });
@@ -608,7 +584,7 @@ export default function OnlineBattleScreen({ playerId, activePetIds, opponentId,
         ) : reward ? (
           <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center', minWidth: '300px', animation: 'popup 0.5s ease-out' }}>
             <h3 style={{ marginBottom: '1rem', color: '#1dd1a1' }}>รางวัลที่ได้รับ</h3>
-            {mode === 'pvp' ? (
+            {true ? (
               <>
                 <p style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.5rem', color: phase === 'victory' ? '#feca57' : '#ff6b6b' }}>
                   🏆 Rating: {reward.eloChange! > 0 ? '+' : ''}{reward.eloChange} (รวม: {reward.newElo})
@@ -649,7 +625,7 @@ export default function OnlineBattleScreen({ playerId, activePetIds, opponentId,
   return (
     <div style={{ 
       display: 'flex', flexDirection: 'column', height: '100%', gap: '0.5rem',
-      backgroundImage: `url('${getBackgroundForMode(mode)}')`,
+      backgroundImage: `url('${getBackgroundForMode('pvp')}')`,
       backgroundSize: 'cover',
       backgroundPosition: 'center',
       backgroundAttachment: 'fixed',

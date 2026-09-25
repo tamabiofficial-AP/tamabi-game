@@ -40,7 +40,7 @@ interface BattleScreenProps {
   playerId: string;
   activePetIds: string[];
   bossData?: any;
-  mode?: 'pve' | 'boss' | 'pvp';
+  mode?: 'pve' | 'boss' | 'pvp' | 'pvp_online';
   onBack: () => void;
 }
 
