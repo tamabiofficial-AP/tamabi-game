@@ -63,6 +63,10 @@ export default function OnlineBattleScreen({ playerId, activePetIds, opponentId,
   const logRef = useRef<HTMLDivElement>(null);
 
   // --- Refs to fix stale closures in setTimeouts ---
+  const currentTurnIdxRef = useRef(currentTurnIdx);
+  currentTurnIdxRef.current = currentTurnIdx;
+  const turnOrderIdsRef = useRef(turnOrderIds);
+  turnOrderIdsRef.current = turnOrderIds;
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
   const unitsRef = useRef(units);
@@ -73,10 +77,31 @@ export default function OnlineBattleScreen({ playerId, activePetIds, opponentId,
   const [isSaving, setIsSaving] = useState(false);
   const [roomChannel, setRoomChannel] = useState<any>(null);
 
+  const handleBack = () => {
+    if (roomChannel) {
+      roomChannel.send({ type: 'broadcast', event: 'leave_room' });
+    }
+    onBack();
+  };
+
   // --- Initialize Channel ---
   useEffect(() => {
     const channel = supabase.channel(`pvp_room_${pin}`, {
       config: { broadcast: { self: false } },
+    });
+
+    channel.on('broadcast', { event: 'leave_room' }, () => {
+      addLog('❌ คู่ต่อสู้ออกจากห้อง!', 'info');
+      setPhase('victory'); // Auto win if opponent leaves
+      if (!hasSavedRef.current) {
+        hasSavedRef.current = true;
+        setIsSaving(true);
+        const playerUnits = unitsRef.current.filter(u => u.team === 'player');
+        processBattleResult('victory', playerId, playerUnits, undefined, 'pvp_online').then(res => {
+          if (res) setReward(res);
+          setIsSaving(false);
+        });
+      }
     });
 
     channel.on('broadcast', { event: 'battle_move' }, (payload: any) => {
@@ -291,10 +316,10 @@ export default function OnlineBattleScreen({ playerId, activePetIds, opponentId,
     if (phaseRef.current === 'victory' || phaseRef.current === 'defeat') return;
     if (checkBattleEnd(unitsRef.current)) return;
 
-    let nextIdx = currentTurnIdx + 1;
+    let nextIdx = currentTurnIdxRef.current + 1;
 
     // If we've gone through all units, start a new round
-    if (nextIdx >= turnOrderIds.length) {
+    if (nextIdx >= turnOrderIdsRef.current.length) {
       nextIdx = 0;
       setTurnNumber(t => t + 1);
 
@@ -329,7 +354,7 @@ export default function OnlineBattleScreen({ playerId, activePetIds, opponentId,
         setUnits(prev => prev.map(u => u.id === newOrder[0] && !u.isDead ? tickCooldowns(u) : u));
       }, 0);
     } else {
-      const nextUnitId = turnOrderIds[nextIdx];
+      const nextUnitId = turnOrderIdsRef.current[nextIdx];
       setUnits(prev => prev.map(u => u.id === nextUnitId && !u.isDead ? tickCooldowns(u) : u));
     }
 
@@ -368,11 +393,11 @@ export default function OnlineBattleScreen({ playerId, activePetIds, opponentId,
   function executeAttack(attacker: PetUnit, mainTarget: PetUnit, skill: Skill) {
     // Calculate targets first outside state updater
     const targets = skill.aoe > 0
-      ? units.filter(u => u.team !== attacker.team && !u.isDead && hexDistance(mainTarget.row, mainTarget.col, u.row, u.col) <= skill.aoe)
+      ? unitsRef.current.filter(u => u.team !== attacker.team && !u.isDead && hexDistance(mainTarget.row, mainTarget.col, u.row, u.col) <= skill.aoe)
       : [mainTarget];
 
     // Compute all changes before updating state (prevents React Strict Mode double-firing side effects)
-    let updatedUnits = [...units];
+    let updatedUnits = [...unitsRef.current];
     
     // Seed Math.random so both clients calculate the exact same crits/dodges
     let seed = turnNumber * 1000 + currentTurnIdx + (attacker.id.charCodeAt(0) || 0);
@@ -434,10 +459,10 @@ export default function OnlineBattleScreen({ playerId, activePetIds, opponentId,
   // --- Execute Heal ---
   function executeHeal(healer: PetUnit, mainTarget: PetUnit, skill: Skill) {
     const targets = skill.aoe > 0
-      ? units.filter(u => u.team === healer.team && !u.isDead && hexDistance(mainTarget.row, mainTarget.col, u.row, u.col) <= skill.aoe)
+      ? unitsRef.current.filter(u => u.team === healer.team && !u.isDead && hexDistance(mainTarget.row, mainTarget.col, u.row, u.col) <= skill.aoe)
       : [mainTarget];
 
-    let updatedUnits = [...units];
+    let updatedUnits = [...unitsRef.current];
     targets.forEach(target => {
       const healAmount = calculateHeal(healer, target, skill);
       addLog(`${healer.emoji} ${healer.name} ใช้ ${skill.icon} ${skill.name} → ${target.emoji} ${target.name}: +${healAmount} HP`, 'heal');
@@ -456,7 +481,7 @@ export default function OnlineBattleScreen({ playerId, activePetIds, opponentId,
 
   // --- Execute Utility ---
   function executeUtility(caster: PetUnit, mainTarget: PetUnit, skill: Skill) {
-    let updatedUnits = [...units];
+    let updatedUnits = [...unitsRef.current];
     addLog(`${caster.emoji} ${caster.name} ใช้ ${skill.icon} ${skill.name}!`, 'info');
 
     // Put skill on cooldown
@@ -628,7 +653,7 @@ export default function OnlineBattleScreen({ playerId, activePetIds, opponentId,
         <button 
           className="btn" 
           style={{ marginTop: '2rem', padding: '1rem 3rem', fontSize: '1.2rem', background: 'var(--primary-gradient)', border: 'none', borderRadius: '12px', color: 'white', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 15px rgba(138, 43, 226, 0.4)' }}
-          onClick={onBack}
+          onClick={handleBack}
           disabled={isSaving}
         >
           {isSaving ? 'กำลังบันทึก...' : 'กลับหน้าหลัก'}
@@ -651,7 +676,7 @@ export default function OnlineBattleScreen({ playerId, activePetIds, opponentId,
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', zIndex: 1, position: 'relative', gap: '0.5rem' }}>
       {/* Header */}
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <button className="btn-icon" onClick={onBack} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'white' }}>
+        <button className="btn-icon" onClick={handleBack} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'white' }}>
           <ChevronLeft size={24} />
         </button>
         <div style={{ textAlign: 'center' }}>
