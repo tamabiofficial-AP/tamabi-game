@@ -117,24 +117,33 @@ export default function OnlineBattleScreen({ playerId, activePetIds, opponentId,
       } else if (data.action === 'guard') {
         addLog(`${unit.emoji} ${unit.name} ตั้งรับ! DEF +50% เทิร์นนี้`, 'info');
         setUnits(prev => prev.map(u => u.id === data.unitId ? { ...u, hasActed: true } : u));
-        // We can't call advanceTurn here directly due to stale closures, but since advanceTurn only uses functional state updates it's fine
-        setUnits(prev => {
-          // This is a hacky way to trigger advance turn after state update
-          return prev;
-        });
-      } else if (data.action === 'skill') {
-        const targetUnit = unitsRef.current.find(u => u.id === data.targetId);
-        const skill = unit.skills.find((s: Skill) => s.id === data.skillId);
-        if (targetUnit && skill) {
-          if (skill.heal) {
-            executeHeal(unit, targetUnit, skill);
-          } else if (skill.type === 'utility' && !skill.damage) {
-            executeUtility(unit, targetUnit, skill);
-          } else {
-            executeAttack(unit, targetUnit, skill);
+        setTimeout(() => advanceTurn(), 400);
+      } else if (data.action === 'skill_result') {
+        // Apply the attacker's computed state snapshot directly — no recalculation
+        const snapshot = data.snapshot as Array<{
+          id: string; hp: number; isDead: boolean; hasActed: boolean;
+          cooldowns: Record<string, number>; statusEffects: any[];
+          row: number; col: number; hasMoved: boolean;
+        }>;
+        if (snapshot && Array.isArray(snapshot)) {
+          setUnits(prev => prev.map(u => {
+            const snap = snapshot.find(s => s.id === u.id);
+            if (snap) {
+              return { ...u, hp: snap.hp, isDead: snap.isDead, hasActed: snap.hasActed,
+                cooldowns: snap.cooldowns, statusEffects: snap.statusEffects,
+                row: snap.row, col: snap.col, hasMoved: snap.hasMoved };
+            }
+            return u;
+          }));
+          
+          // Log the action
+          const skill = unit.skills.find((s: Skill) => s.id === data.skillId);
+          const targetUnit = unitsRef.current.find(u => u.id === data.targetId);
+          if (skill && targetUnit) {
+            addLog(`${unit.emoji} ${unit.name} ใช้ ${skill.icon} ${skill.name} → ${targetUnit.emoji} ${targetUnit.name}`, 'damage');
           }
-          setTimeout(() => advanceTurn(), 600);
         }
+        setTimeout(() => advanceTurn(), 600);
       } else if (data.action === 'skip') {
         addLog(`${unit.emoji} ${unit.name} จบเทิร์น`, 'info');
         setTimeout(() => advanceTurn(), 300);
@@ -353,16 +362,47 @@ export default function OnlineBattleScreen({ playerId, activePetIds, opponentId,
       const newOrder = getTurnOrder(updatedUnits).map(u => u.id);
       setTurnOrderIds(newOrder);
       setUnits(updatedUnits);
+
+      // Check battle end after poison
+      if (checkBattleEnd(updatedUnits)) return;
+
+      // Skip dead units at start of new round
+      let startIdx = 0;
+      while (startIdx < newOrder.length) {
+        const uid = newOrder[startIdx];
+        const u = updatedUnits.find(x => x.id === uid);
+        if (u && !u.isDead) break;
+        startIdx++;
+      }
+      if (startIdx >= newOrder.length) return; // All dead (shouldn't happen after checkBattleEnd)
+
+      setCurrentTurnIdx(startIdx);
       // Wait for next cycle to update order
       setTimeout(() => {
-        setUnits(prev => prev.map(u => u.id === newOrder[0] && !u.isDead ? tickCooldowns(u) : u));
+        setUnits(prev => prev.map(u => u.id === newOrder[startIdx] && !u.isDead ? tickCooldowns(u) : u));
       }, 0);
     } else {
+      // Skip dead units
+      while (nextIdx < turnOrderIdsRef.current.length) {
+        const nextUnitId = turnOrderIdsRef.current[nextIdx];
+        const nextUnit = unitsRef.current.find(u => u.id === nextUnitId);
+        if (nextUnit && !nextUnit.isDead) break;
+        nextIdx++;
+      }
+
+      // If we ran past the end, start a new round recursively
+      if (nextIdx >= turnOrderIdsRef.current.length) {
+        // Set to end-of-list so the recursive call triggers new round
+        setCurrentTurnIdx(turnOrderIdsRef.current.length - 1);
+        currentTurnIdxRef.current = turnOrderIdsRef.current.length - 1;
+        advanceTurn();
+        return;
+      }
+
       const nextUnitId = turnOrderIdsRef.current[nextIdx];
       setUnits(prev => prev.map(u => u.id === nextUnitId && !u.isDead ? tickCooldowns(u) : u));
+      setCurrentTurnIdx(nextIdx);
     }
-
-    setCurrentTurnIdx(nextIdx);
 
     setSelectedSkill(null);
     setHighlightedCells(new Set());
@@ -532,9 +572,6 @@ export default function OnlineBattleScreen({ playerId, activePetIds, opponentId,
     if (phase === 'select_target' && selectedSkill) {
       const targetUnit = units.find(u => u.row === row && u.col === col && !u.isDead);
       if (targetUnit && targetablePets.has(targetUnit.id)) {
-        if (roomChannel) {
-          roomChannel.send({ type: 'broadcast', event: 'battle_move', payload: { action: 'skill', targetId: targetUnit.id, skillId: selectedSkill.id, unitId: activeUnit.id } });
-        }
         if (selectedSkill.heal) {
           executeHeal(activeUnit, targetUnit, selectedSkill);
         } else if (selectedSkill.type === 'utility' && !selectedSkill.damage) {
@@ -542,6 +579,26 @@ export default function OnlineBattleScreen({ playerId, activePetIds, opponentId,
         } else {
           executeAttack(activeUnit, targetUnit, selectedSkill);
         }
+        
+        // Broadcast the resulting unit states so both clients apply the SAME outcome
+        if (roomChannel) {
+          // Wait a tick for setUnits to have taken effect, then broadcast the snapshot
+          setTimeout(() => {
+            const snapshot = unitsRef.current.map(u => ({
+              id: u.id, hp: u.hp, isDead: u.isDead, hasActed: u.hasActed,
+              cooldowns: u.cooldowns, statusEffects: u.statusEffects,
+              row: u.row, col: u.col, hasMoved: u.hasMoved
+            }));
+            roomChannel.send({ type: 'broadcast', event: 'battle_move', payload: { 
+              action: 'skill_result', 
+              unitId: activeUnit.id, 
+              targetId: targetUnit.id, 
+              skillId: selectedSkill.id, 
+              snapshot 
+            }});
+          }, 50);
+        }
+        
         setSelectedSkill(null);
         setTargetablePets(new Set());
         setTimeout(() => advanceTurn(), 600);
