@@ -110,11 +110,10 @@ export default function OnlineBattleScreen({ playerId, activePetIds, opponentId,
       if (!unit) return;
       
       if (data.action === 'move') {
-        const flippedCol = (GRID_COLS - 1) - data.col; // Flip col for symmetry
         setUnits(prev => prev.map(u =>
-          u.id === data.unitId ? { ...u, row: data.row, col: flippedCol, hasMoved: true } : u
+          u.id === data.unitId ? { ...u, row: data.row, col: data.col, hasMoved: true } : u
         ));
-        addLog(`${unit.emoji} ${unit.name} เคลื่อนที่ไปช่อง (${data.row},${flippedCol})`, 'info');
+        addLog(`${unit.emoji} ${unit.name} เคลื่อนที่ไปช่อง (${data.row},${data.col})`, 'info');
       } else if (data.action === 'guard') {
         addLog(`${unit.emoji} ${unit.name} ตั้งรับ! DEF +50% เทิร์นนี้`, 'info');
         setUnits(prev => prev.map(u => u.id === data.unitId ? { ...u, hasActed: true } : u));
@@ -177,8 +176,8 @@ export default function OnlineBattleScreen({ playerId, activePetIds, opponentId,
       }
 
       if (data) {
-        let playerIndex = 0;
-        let enemyIndex = 0;
+        let hostIndex = 0;
+        let guestIndex = 0;
 
         const filteredData = data.filter((pet: any) => 
           (pet.owner_id === playerId && activePetIds.includes(pet.id)) ||
@@ -196,22 +195,27 @@ export default function OnlineBattleScreen({ playerId, activePetIds, opponentId,
           const traitDef = TRAITS[(pet.trait as TraitName) || 'Normal'] || TRAITS['Normal'];
 
           const isPlayer = pet.owner_id === playerId;
+          const isHostTeam = isHost ? isPlayer : !isPlayer; // Host is ALWAYS on the left
           const bondValue = pet.bond || 0; // Both players use real bond
           
-          // Positioning: Player on left (col 0), Enemy on right (col 3)
+          // Positioning: Host on left (col 0), Guest on right (col 3)
           let row = 0, col = 0;
-          if (isPlayer) {
+          if (isHostTeam) {
             col = 0;
+            const hostPetCount = isHost ? activePetIds.length : opponentActivePetIds.length;
             // Center the party based on number of pets
-            if (activePetIds.length === 1) row = 2;
-            else if (activePetIds.length === 2) row = playerIndex === 0 ? 1 : 3;
-            else row = playerIndex + 1; // 1, 2, 3
+            if (hostPetCount === 1) row = 2;
+            else if (hostPetCount === 2) row = hostIndex === 0 ? 1 : 3;
+            else row = hostIndex + 1; // 1, 2, 3
             
-            playerIndex++;
+            hostIndex++;
           } else {
             col = GRID_COLS - 1; // 3
-            row = enemyIndex + 1; // simple stack
-            enemyIndex++;
+            const guestPetCount = !isHost ? activePetIds.length : opponentActivePetIds.length;
+            if (guestPetCount === 1) row = 2;
+            else if (guestPetCount === 2) row = guestIndex === 0 ? 1 : 3;
+            else row = guestIndex + 1;
+            guestIndex++;
           }
 
           return {
