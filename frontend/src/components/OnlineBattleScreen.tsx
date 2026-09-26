@@ -30,10 +30,10 @@ import type { TraitName } from '../engine/petData';
 const SPECIES_RANGED = ['Eagle', 'Bat'];
 
 const getBackgroundForMode = (mode: string) => {
-  if (mode === 'pve') return '/assets/bg_forest.jpg';
-  if (mode === 'boss') return '/assets/bg_volcano.jpg';
-  if (mode === 'pvp') return '/assets/bg_arena.jpg';
-  return '/assets/bg_island.jpg';
+  if (mode === 'pve') return '/assets/env/bg_forest.png';
+  if (mode === 'boss') return '/assets/env/bg_volcano.png';
+  if (mode === 'pvp') return '/assets/env/bg_arena.png';
+  return '/assets/env/bg_island.png';
 };
 
 interface OnlineBattleScreenProps {

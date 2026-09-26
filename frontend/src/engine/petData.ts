@@ -15,17 +15,17 @@ export const SPECIES_EMOJI: Record<string, string> = {
 
 export const SPECIES_IMAGES: Record<string, string> = {
   // Fire
-  Dragon: '/assets/pets/dragon.jpg', Phoenix: '/assets/pets/phoenix.jpg', Fox: '/assets/pets/fox.jpg', Lion: '/assets/pets/lion.jpg',
+  Dragon: '/assets/pets/dragon_pixel.png', Phoenix: '/assets/pets/phoenix_pixel.png', Fox: '/assets/pets/fox_pixel.png', Lion: '/assets/pets/lion_pixel.png',
   // Water
-  Turtle: '/assets/pets/turtle.jpg', Shark: '/assets/pets/shark.jpg', Penguin: '/assets/pets/penguin.jpg', Dolphin: '/assets/pets/dolphin.jpg',
+  Turtle: '/assets/pets/turtle_pixel.png', Shark: '/assets/pets/shark_pixel.png', Penguin: '/assets/pets/penguin_pixel.png', Dolphin: '/assets/pets/dolphin_pixel.png',
   // Earth
-  Bear: '/assets/pets/bear.jpg', Golem: '/assets/pets/golem.jpg', Rhino: '/assets/pets/rhino.jpg', Mole: '/assets/pets/mole.jpg',
+  Bear: '/assets/pets/bear_pixel.png', Golem: '/assets/pets/golem_pixel.png', Rhino: '/assets/pets/rhino_pixel.png', Mole: '/assets/pets/mole_pixel.png',
   // Wind
-  Eagle: '/assets/pets/eagle.jpg', Falcon: '/assets/pets/falcon.jpg', Bat: '/assets/pets/bat.jpg', Butterfly: '/assets/pets/butterfly.jpg',
+  Eagle: '/assets/pets/eagle_pixel.png', Falcon: '/assets/pets/falcon_pixel.png', Bat: '/assets/pets/bat_pixel.png', Butterfly: '/assets/pets/butterfly_pixel.png',
   // Light
-  Unicorn: '/assets/pets/unicorn.jpg', Owl: '/assets/pets/owl.jpg', Pegasus: '/assets/pets/pegasus.jpg', Swan: '/assets/pets/swan.jpg',
+  Unicorn: '/assets/pets/unicorn_pixel.png', Owl: '/assets/pets/owl_pixel.png', Pegasus: '/assets/pets/pegasus_pixel.png', Swan: '/assets/pets/swan_pixel.jpg',
   // Dark
-  Snake: '/assets/pets/snake.jpg', Spider: '/assets/pets/spider.jpg', Panther: '/assets/pets/panther.jpg', Crow: '/assets/pets/crow.jpg'
+  Snake: '/assets/pets/snake_pixel.jpg', Spider: '/assets/pets/spider_pixel.jpg', Panther: '/assets/pets/panther_pixel.jpg', Crow: '/assets/pets/crow_pixel.jpg'
 };
 
 export type TraitName = 'Normal' | 'Brave' | 'Lazy' | 'Gluttonous' | 'Energetic' | 'Smart';

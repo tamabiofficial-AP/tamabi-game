@@ -459,10 +459,10 @@ export default function App() {
     : Object.keys(ITEMS).filter(itemId => ITEMS[itemId].type === inventoryFilter && profile.inventory && profile.inventory[itemId] > 0);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '1rem', position: 'relative' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '0.5rem', position: 'relative', padding: '0.5rem', overflow: 'hidden' }}>
       
       {/* Header / Top Bar */}
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0' }}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.3rem 0', flexShrink: 0 }}>
         <div>
           <h2 style={{ fontSize: '1.2rem' }}>{profile.username}</h2>
           <div style={{ display: 'flex', gap: '1rem', marginTop: '0.2rem' }}>
@@ -482,8 +482,9 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Pet Display Area */}
-      <main className="glass-panel" style={{ minHeight: '380px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+      {/* Main Pet Display Area + Stats - Landscape side by side */}
+      <div style={{ display: 'flex', flex: 1, gap: '0.5rem', overflow: 'hidden', minHeight: 0 }}>
+      <main className="glass-panel" style={{ width: '220px', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', padding: '0.8rem' }}>
         <div style={{ 
           position: 'absolute', width: '200px', height: '200px', 
           background: 'radial-gradient(circle, rgba(255, 107, 107, 0.2) 0%, rgba(0,0,0,0) 70%)',
@@ -505,7 +506,7 @@ export default function App() {
           </button>
           
           <div className="animate-float" style={{ 
-            width: '180px', height: '180px', 
+            width: '130px', height: '130px', 
             background: 'var(--bg-main)', 
             borderRadius: '50%', 
             border: '3px solid var(--stat-happiness)',
@@ -541,15 +542,16 @@ export default function App() {
           ))}
         </div>
 
-        <h1 style={{ zIndex: 1, textAlign: 'center' }}>{pet.name}</h1>
-        <p style={{ zIndex: 1, textTransform: 'capitalize' }}>{speciesName} • {element}</p>
-        <span style={{ zIndex: 1, marginTop: '0.5rem', padding: '0.2rem 0.8rem', background: 'rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '0.8rem', color: 'var(--text-main)', border: '1px solid rgba(255,255,255,0.2)' }}>
+        <h1 style={{ zIndex: 1, textAlign: 'center', fontSize: '1rem' }}>{pet.name}</h1>
+        <p style={{ zIndex: 1, textTransform: 'capitalize', fontSize: '0.75rem' }}>{speciesName} • {element}</p>
+        <span style={{ zIndex: 1, marginTop: '0.4rem', padding: '0.2rem 0.6rem', background: 'rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '0.7rem', color: 'var(--text-main)', border: '1px solid rgba(255,255,255,0.2)' }}>
           Trait: {pet.trait || 'Normal'}
         </span>
       </main>
 
-      {/* Care Dashboard */}
-      <section className="glass-panel" style={{ padding: '1.2rem' }}>
+      {/* Right Side: Care + Actions + Stats in one scrollable column */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem', overflow: 'auto', minWidth: 0 }}>
+      <section className="glass-panel" style={{ padding: '0.8rem', flexShrink: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <h3 style={{ fontSize: '1rem' }}>Care Status</h3>
           <div style={{ background: 'rgba(255,255,255,0.1)', padding: '0.2rem 0.6rem', borderRadius: '12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
@@ -587,7 +589,7 @@ export default function App() {
       </section>
 
       {/* Combat Stats (with Trait bonus) */}
-      <section className="glass-panel" style={{ padding: '1.2rem' }}>
+      <section className="glass-panel" style={{ padding: '0.8rem', flexShrink: 0 }}>
         <h3 style={{ marginBottom: '0.8rem', fontSize: '1rem' }}>⚔️ Combat Stats</h3>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
           <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '0.5rem 0.8rem', textAlign: 'center' }}>
@@ -624,9 +626,11 @@ export default function App() {
           {traitDef.name !== 'Normal' && <span> — {traitDef.description}</span>}
         </div>
       </section>
+      </div> {/* End right-side column */}
+      </div> {/* End landscape row wrapper */}
 
       {/* Bottom Navigation Area */}
-      <nav style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+      <nav style={{ display: 'flex', gap: '0.5rem', flexShrink: 0, justifyContent: 'space-around' }}>
         <button 
           className="glass-panel" 
           onClick={() => setCurrentScreen('battle_menu')}
